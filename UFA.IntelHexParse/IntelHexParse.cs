@@ -63,7 +63,7 @@ namespace UFA.IntelHexParse
         /// <returns></returns>
         public I32HEX FRMperLine(string line)
         {
-            if (line == null || line[0] != ':')
+            if (line == null || line[0] != ':' || ((line.Length % 2) == 0))
                 throw new Exception("Неверный формат файла с прошивкой IntelHex");
             else
                 line = line.TrimStart(new char[] { ':' });
