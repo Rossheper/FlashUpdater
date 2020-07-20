@@ -3,6 +3,15 @@ using System.Runtime.InteropServices;
 
 namespace UFA.IntelHexParse
 {
+    public enum RecordType
+    {
+        Data = 0x00,
+        EOF = 0x01,
+        ExtendedSegmentAddrees = 0x02,
+        StartSegmentAddress = 0x03,
+        ExtendedLinearAddress = 0x04,
+        StartLinearAddress = 0x05
+    }
     /// <summary>
     /// Структура заголовка IntelHex (I32HEX)
     /// </summary>
