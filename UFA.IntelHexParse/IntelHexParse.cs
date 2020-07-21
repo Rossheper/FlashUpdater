@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-
+using UFA.Exceptions;
 namespace UFA.IntelHexParse
 {
     public enum RecordType
@@ -73,7 +73,7 @@ namespace UFA.IntelHexParse
         public I32HEX FRMperLine(string line)
         {
             if (line == null || line[0] != ':' || ((line.Length % 2) == 0))
-                throw new Exception("Неверный формат файла с прошивкой IntelHex");
+                throw new IntelHexFileCheckException("Неверный формат файла с прошивкой IntelHex");
             else
                 line = line.TrimStart(new char[] { ':' });
             return Line2IntelHex(line);
@@ -109,7 +109,7 @@ namespace UFA.IntelHexParse
             _hexLine.Checksum = (byte)((~_hexLine.Checksum & 0xff) + 1);
 
             if (_hexLine.Checksum != _hexLine.Checksum_file)
-                throw new Exception(String.Format("Ошибка при расчете Checksum в строке \n :{0}", line));
+                throw new IntelHexFileCheckException(String.Format("Ошибка при расчете Checksum в строке \n :{0}", line));
 
             return _hexLine;
         }
