@@ -109,7 +109,7 @@ namespace UFA.IntelHexParse
             _hexLine.Checksum = (byte)((~_hexLine.Checksum & 0xff) + 1);
 
             if (_hexLine.Checksum != _hexLine.Checksum_file)
-                throw new IntelHexFileCheckException(String.Format("Ошибка при расчете Checksum в строке \n :{0}", line));
+                throw new IntelHexFileCheckException(String.Format("Ошибка при расчете Checksum в строке \n :{0} \n Рассчитанная: {1:X} \n Указана в строке: {2:X}", line, _hexLine.Checksum, _hexLine.Checksum_file));
 
             return _hexLine;
         }
