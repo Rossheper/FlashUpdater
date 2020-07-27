@@ -12,6 +12,9 @@ using System.Threading.Tasks;
 
 namespace UFA.ProgrammFlash
 {
+    /// <summary>
+    /// Перечисление форматов обмена MILSTD 
+    /// </summary>
     public enum FORMATS_MILSTD
     {
         F1 = 0,
@@ -22,13 +25,18 @@ namespace UFA.ProgrammFlash
     /// </summary>
     public class ProgrammFlash
     {
-        private UInt32 _errorCountSending = 0;
-
+        /// <summary>
+        /// Перечисление типов прошивки
+        /// </summary>
         public enum TypeFRM
         {
             PLIS = 0,
             DSP = 1
         }
+
+        /// <summary>
+        /// Структура адресного пространства DPS и PLIS
+        /// </summary>
         public struct startAddrPagesFRM
         {
             public ushort DSP;
@@ -39,15 +47,25 @@ namespace UFA.ProgrammFlash
                 PLIS = plis;
             }
         }
+
+        /// <summary>
+        /// Команды управления данными флеш памяти и прерываниями АЭ
+        /// </summary>
         public enum CMD
         {
             DisableInterrupt = 1,
             EraseFlashALL = 2,
-            EraseFlashSector = 3,
+            EraseFlashSector = 3
+        }
+
+        /// <summary>
+        ///  Команды для записи/чтения флеш-памяти
+        /// </summary>
+        protected enum FirmwareCMD
+        {
             ProgrammFlash = 5,
             ReadFlash = 6
         }
-
         /// <summary>
         /// Структура с полями используемого адреса и подадреса
         /// </summary>
@@ -97,12 +115,19 @@ namespace UFA.ProgrammFlash
         /// Поле, содержащее информацию о загруженном файле/файлах
         /// </summary>
         private IntelHex _i32hex;
+
+        /// <summary>
+        /// Поле обекта, управляющего платой Elcus 
+        /// </summary>
         private MILSTD1553Operation _milstd_api;
         private bool _connectIsOpen = false;
         private startAddrPagesFRM _addrPages;
         public FRM_ADDR_SUB DefaultFRMAddressing { get; set; }
 
+        private ushort page = 0x0;
+        private ushort page2 = 0xff;
         private ushort[] _getOSMilstd;
+
         public ProgrammFlash()
         {
             _i32hex = new IntelHex();
@@ -140,26 +165,44 @@ namespace UFA.ProgrammFlash
         /// <param name="cmd">Номер команды</param>
         /// <param name="data">Текущая структура IntelHex, содержащая строку данных</param>
         /// <returns></returns>
-        private ushort[] HeaderIntelHexCreator(CMD cmd, I32HEX data, TypeFRM typeFrm)
+        private ushort[] HeaderIntelHexCreator(FirmwareCMD cmd, I32HEX data, TypeFRM typeFrm)
         {
-            ushort page = 0x0;
-            if (typeFrm == TypeFRM.DSP)
+
+            if ((data.Address % 0x8000) == 0)
             {
-                if ((data.Address % 0x8000) == 0)
+                if (typeFrm == TypeFRM.DSP)
                     page = _addrPages.DSP++;
                 else
-                    page = _addrPages.DSP;
-            }
-            else
-            {
-                if ((data.Address % 0x4000) == 0)
                     page = _addrPages.PLIS++;
-                else
-                    page = _addrPages.PLIS;
             }
 
             data.Address = (ushort)((data.Address & 0x7FFF) / 2);
+
+            //if (page2 != page)
+            //    System.Diagnostics.Debug.WriteLine("Page: {0:X}", page);
+            //page2 = page;
+            //System.Diagnostics.Debug.WriteLine("Address: {0:X}", data.Address);
+            //if (data.Address == 0x3FF8)
+            //{
+            //    System.Diagnostics.Debug.Write(String.Format("Data:"));
+            //    for (int i = 0; i < data.ByteCount; i++)
+            //    {
+            //        System.Diagnostics.Debug.Write(String.Format("{0:X} ", data.Data[i]));
+            //    }
+            //    System.Diagnostics.Debug.WriteLine("");
+            //}
+
             return new ushort[] { (ushort)cmd, data.Address, page };
+        }
+
+        /// <summary>
+        /// Установка адресов по-умолчанию
+        /// </summary>
+        private void ResetAddresses()
+        {
+            _addrPages.PLIS = 0x0;
+            _addrPages.DSP = 0x0a;
+            page = 0;
         }
 
         /// <summary>
@@ -212,52 +255,46 @@ namespace UFA.ProgrammFlash
                 {
                     I32HEX st = _i32hex.FRMperLine(reader.ReadLine());
 
-                    Retry:
+                    //Retry:
                     // Если получили тип с данными!
                     if (st.RecordType == (byte)RecordType.Data)
                     {
                         /// Отправляю данные по манчестеру (Ф1)
                         // Формирую массив для отправки (заголовок + данные + CRC16)
-                        ushort[] ToSend = FrameIntelHexCreator(HeaderIntelHexCreator(CMD.ProgrammFlash, st, type), Data2SendPrepare(st));
-                        if (!_milstd_api.SendData(10, new MILSTDCMDFrame(10, 21, 0, (short)(ToSend.Length)), ref ToSend))
+                        ushort[] ToSend = FrameIntelHexCreator(HeaderIntelHexCreator(FirmwareCMD.ProgrammFlash, st, type), Data2SendPrepare(st));
+                        ProgrammState prgState;
+                        do
                         {
-                            goto Retry;
-                            // Все неудачно, повторить посылку
+                            prgState = FlashCommand((CMD)FirmwareCMD.ProgrammFlash, FORMATS_MILSTD.F1, ToSend);
+                            if (prgState.state == PrgState.MILSTDError)
+                                Thread.Sleep(200);
                         }
-                        else
+                        while (prgState.state != PrgState.Finished);
+                        if (prgState.state == PrgState.Finished)
                         {
-
-                        }
-                        //// Ф2 - получение кода вхождения в прерывание (А5)
-                        _milstd_api.SendData(10, new MILSTDCMDFrame(10, 21, 0, (short)(_getOSMilstd.Length)), ref _getOSMilstd);
-
-                        if (_getOSMilstd[0] == 0xA500)
-                        {
-
-                            // В прерывание вошли
-                            _milstd_api.SendData(10, 10, 1, 21, 1, ref _getOSMilstd);
-                            //Проверка записи данных во флеш!
-                            //// Ф2 - получение команды и статуса Флешки (1 - не записано, 0 - все ОК)
-                            if (((_getOSMilstd[0] & 0xFF00) >> 8) == 0)
+                            do
                             {
-                                // Записано успешно, продолжаем
-                                continue;
+                                prgState = FlashCommand((CMD)FirmwareCMD.ProgrammFlash, FORMATS_MILSTD.F2, _getOSMilstd);
+                                if (prgState.state == PrgState.MILSTDError)
+                                    Thread.Sleep(200);
                             }
-                            else
-                            {
-                                goto Retry;
-                                // Ошибка записи во флеш - повторить запись тех же данных
-                            }
-                        }
-                        else
-                        {
-                            goto Retry;
+                            while (prgState.state != PrgState.Finished);
                         }
                     }
+                    // Процессинг
+                    // Возможно я чтение файла выкину отсюда в основное окно, чтобы отслеживать прогерсс-баром
                 }
             }
         }
 
+        /// <summary>
+        /// Метод отправки/получения данных
+        /// </summary>
+        /// <param name="frmaddr">Структура с адресом и подадресом</param>
+        /// <param name="format">Формат передачи (к = 0, к = 1)</param>
+        /// <param name="ToSend">Массив для отправки</param>
+        /// <param name="msgErr">Сообщение с ошибкой</param>
+        /// <returns></returns>
         private bool SendFormat(FRM_ADDR_SUB frmaddr, FORMATS_MILSTD format, ref ushort[] ToSend, out ProgrammState msgErr)
         {
             if (!_milstd_api.SendData(frmaddr.ADDR, new MILSTDCMDFrame(frmaddr.ADDR, frmaddr.SUB, (short)format, (short)(ToSend.Length)), ref ToSend))
@@ -274,7 +311,7 @@ namespace UFA.ProgrammFlash
             }
         }
 
-
+        #region Comments
         //private bool SendFormatF1_F2(FRM_ADDR_SUB frmaddr, ushort[] ToSend, out ProgrammState msgErr)
         //{
         //    if (!_milstd_api.SendData(frmaddr.ADDR, new MILSTDCMDFrame(frmaddr.ADDR, frmaddr.SUB, (short)FORMATS_MILSTD.F1, (short)(ToSend.Length)), ToSend))
@@ -334,30 +371,60 @@ namespace UFA.ProgrammFlash
         //    else
         //        return new ProgrammState(PrgState.MILSTDError, "Соединение с платой не было установлено");
         //}
+        #endregion
 
-        virtual public ProgrammState FlashCommand(CMD cmd, FORMATS_MILSTD frmt, ref uint errors)
+        /// <summary>
+        /// Метод управления флеш-памятью
+        /// </summary>
+        /// <param name="cmd">Требуемая команда</param>
+        /// <param name="frmt">Формат передачи (к = 0, к = 1)</param>
+        /// <param name="toSend">Массив данных для передачи (только для CMD 5 и 6)</param>
+        /// <returns></returns>
+        virtual public ProgrammState FlashCommand(CMD cmd, FORMATS_MILSTD frmt, ushort[] toSend = null)
         {
-
             if (_connectIsOpen)
             {
                 ProgrammState error = new ProgrammState();
-                ushort[] toSend = CreateCMD(cmd);
-                ushort[] toGet = new ushort[1];
-                _errorCountSending = 0;
-
-                if (SendFormat(DefaultFRMAddressing, frmt, ref toSend, out error))
+                ushort[] mass;
+                if (frmt == FORMATS_MILSTD.F1)
                 {
-                    errors = 0;
-                    return new ProgrammState(PrgState.Finished);    // Отправлено удачно
+                    if ((int)cmd < (int)FirmwareCMD.ProgrammFlash)
+                    {
+                        mass = CreateCMD(cmd);
+                    }
+                    else
+                    {
+                        mass = toSend;
+                    }
                 }
                 else
+                    mass = new ushort[1];
+
+                if (SendFormat(DefaultFRMAddressing, frmt, ref mass, out error))
                 {
-                    errors++;
-                    return new ProgrammState(PrgState.MILSTDError,"Отправка неуспешна");    // Отправлено неудачно
+                    if (frmt == FORMATS_MILSTD.F1)
+                        return new ProgrammState(PrgState.Finished);    // Отправлено удачно
+                    else
+                    {
+                        if (mass[0] != (ushort)cmd)
+                        {
+                            return new ProgrammState(PrgState.MILSTDError, String.Format("Ответ от ОУ = {0}, должен соответствовать {1}", mass[0], (ushort)cmd));
+                        }
+                        else
+                            return new ProgrammState(PrgState.Finished);    // Отправлено удачно
+                    }
                 }
+                else
+                    return error;    // Отправлено неудачно
             }
             else
                 return new ProgrammState(PrgState.MILSTDError, "Соединение с платой не было установлено");
+        }
+
+
+        virtual protected ProgrammState FlashCommand(FirmwareCMD cmd, FORMATS_MILSTD frmt)
+        {
+            return FlashCommand(cmd, frmt);
         }
 
         /// <summary>
@@ -369,7 +436,7 @@ namespace UFA.ProgrammFlash
             if (_connectIsOpen)
             {
                 ReadFileFRM(FRM, type);
-                return new ProgrammState();
+                return new ProgrammState(PrgState.Finished);
             }
             else
                 return new ProgrammState(PrgState.MILSTDError, "Соединение с платой не было установлено");
@@ -398,6 +465,12 @@ namespace UFA.ProgrammFlash
                     throw;
                 }
             }
+        }
+
+        virtual public void TestFile(FileInfo FRM, TypeFRM type)
+        {
+            ResetAddresses();
+            ReadFileFRM(FRM, type);
         }
     }
 }
