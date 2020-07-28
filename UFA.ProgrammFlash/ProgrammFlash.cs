@@ -20,18 +20,45 @@ namespace UFA.ProgrammFlash
         F1 = 0,
         F2 = 1
     }
+
     /// <summary>
     /// Класс, содержащий логику программирования Изделия АЕСН.466369.001
     /// </summary>
     public class ProgrammFlash
     {
-        /// <summary>
-        /// Перечисление типов прошивки
-        /// </summary>
-        public enum TypeFRM
+        #region Структуры
+        public struct Pages
         {
-            PLIS = 0,
-            DSP = 1
+            public ushort Minimum;
+            public ushort Maximum;
+            public Pages(ushort minPageAddr, ushort maxPageAddr)
+            {
+                Minimum = minPageAddr;
+                Maximum = maxPageAddr;
+            }
+        }
+
+        public struct FlashPages
+        {
+            public Pages DSP;
+            public Pages PLIS;
+            public FlashPages(Pages dsp, Pages plis)
+            {
+                DSP = dsp;
+                PLIS = plis;
+            }
+        }
+
+        public struct PageAddr
+        {
+            public ushort addr;
+            public ushort page;
+
+            public PageAddr(ushort adr, ushort pg)
+            {
+                addr = adr;
+                page = pg;
+            }
         }
 
         /// <summary>
@@ -48,24 +75,6 @@ namespace UFA.ProgrammFlash
             }
         }
 
-        /// <summary>
-        /// Команды управления данными флеш памяти и прерываниями АЭ
-        /// </summary>
-        public enum CMD
-        {
-            DisableInterrupt = 1,
-            EraseFlashALL = 2,
-            EraseFlashSector = 3
-        }
-
-        /// <summary>
-        ///  Команды для записи/чтения флеш-памяти
-        /// </summary>
-        protected enum FirmwareCMD
-        {
-            ProgrammFlash = 5,
-            ReadFlash = 6
-        }
         /// <summary>
         /// Структура с полями используемого адреса и подадреса
         /// </summary>
@@ -87,17 +96,6 @@ namespace UFA.ProgrammFlash
         }
 
         /// <summary>
-        /// Перечисление состояний перепрограммирования
-        /// </summary>
-        public enum PrgState
-        {
-            MILSTDError = 0xFF,
-            Starting = 0x01,
-            Processing = 0x02,
-            Finished = 0x03
-        }
-
-        /// <summary>
         /// Структура, содержащая сообщение и код состояния перепрограммирования
         /// </summary>
         public struct ProgrammState
@@ -109,25 +107,81 @@ namespace UFA.ProgrammFlash
                 message = msg;
                 state = st;
             }
+            public ProgrammState(ProgrammState pS, string msg = null)
+            {
+                if (msg == null)
+                    message = pS.message;
+                else
+                    message = msg;
+                state = pS.state;
+            }
+        }
+        #endregion
+
+        #region Перечисления
+        /// <summary>
+        /// Перечисление типов прошивки
+        /// </summary>
+        public enum TypeFRM
+        {
+            PLIS = 0,
+            DSP = 1
         }
 
         /// <summary>
-        /// Поле, содержащее информацию о загруженном файле/файлах
+        /// Команды управления данными флеш памяти и прерываниями АЭ
         /// </summary>
-        private IntelHex _i32hex;
+        public enum CMD
+        {
+            DisableInterrupt = 1,
+            EraseFlashALL = 2,
+            EraseFlashSector = 3
+        }
 
         /// <summary>
-        /// Поле обекта, управляющего платой Elcus 
+        ///  Команды для записи/чтения флеш-памяти
         /// </summary>
-        private MILSTD1553Operation _milstd_api;
-        private bool _connectIsOpen = false;
-        private startAddrPagesFRM _addrPages;
+        protected enum FirmwareCMD
+        {
+            ProgrammFlash = 5,
+            ReadFlash = 6
+        }
+
+        /// <summary>
+        /// Перечисление состояний перепрограммирования
+        /// </summary>
+        public enum PrgState
+        {
+            MILSTDError = 0xFF,
+            Starting = 0x01,
+            Processing = 0x02,
+            Finished = 0x03
+        }
+        #endregion
+
+        #region Поля
+        private IntelHex _i32hex;                   // Поле, содержащее информацию о загруженном файле/файлах
+        private MILSTD1553Operation _milstd_api;    // Поле обекта, управляющего платой Elcus 
+        private bool _connectIsOpen = false;        // Состояние захвата платы
+        private startAddrPagesFRM _addrPages;       // Объект с описание начальной адресации PLIS и DSP
+        private ushort page = 0x0;                  // Глобальное значение адреса страницы
+        private ushort[] _getOSMilstd;              // Массив для хранения ответных слов                         
+        #endregion
+
+        #region Свойства
+        public FlashPages PagesZone { get; set; }
+        /// <summary>
+        /// Свойство, устанавливающее значения адреса и подадреса для программирования
+        /// </summary>
         public FRM_ADDR_SUB DefaultFRMAddressing { get; set; }
 
-        private ushort page = 0x0;
-        private ushort page2 = 0xff;
-        private ushort[] _getOSMilstd;
+        /// <summary>
+        /// Свойство с инфорацией о состоянии подключения к плате Манчестер
+        /// </summary>
+        public bool ConnectToMILSTD { get { return _connectIsOpen; } }
+        #endregion
 
+        #region Конструкторы класса
         public ProgrammFlash()
         {
             _i32hex = new IntelHex();
@@ -135,9 +189,55 @@ namespace UFA.ProgrammFlash
             _getOSMilstd = new ushort[1];
             _connectIsOpen = ConnectionOpen() >= 0 ? true : false;
             _addrPages = new startAddrPagesFRM(0x000A, 0x0000);
-            DefaultFRMAddressing = new FRM_ADDR_SUB(10, 31);
+            DefaultFRMAddressing = new FRM_ADDR_SUB(10, 30);
+            PagesZone = new FlashPages(new Pages(0x0A, 0x12), new Pages(0x00, 0x09));
 
+        }
+        public ProgrammFlash(FRM_ADDR_SUB addrSub) : this()
+        {
+            DefaultFRMAddressing = addrSub;
+        }
+        #endregion
 
+        #region Методы
+        /// <summary>
+        /// Метод, стирающий указанную страницу во флеш-памяти
+        /// </summary>
+        /// <param name="page">Номер страницы</param>
+        /// <param name="type">Тип прошивки</param>
+        /// <returns></returns>
+        private ushort[] HeaderForEraseSectore(ushort page, TypeFRM type)
+        {
+            ushort[] mass;
+            mass = new ushort[] { (ushort)CMD.EraseFlashSector, 0x0, page };
+            return new ushort[] { (ushort)CMD.EraseFlashSector, 0x0, page, new CRC().CRC16PerByte(mass, (mass.Length)) };
+        }
+
+        /// <summary>
+        /// Метод, формирующий заголовок для чтения из флеш памяти
+        /// </summary>
+        /// <param name="page">Номер страницы</param>
+        /// <param name="addr">Адрес внутри страницы</param>
+        /// <param name="len">Длина считывания данных (до 32)</param>
+        /// <param name="type">Тип прошивки</param>
+        /// <returns></returns>
+        private ushort[] HeaderForReadFromFlash(ushort page, ushort addr, ushort len, TypeFRM type)
+        {
+            if (type == TypeFRM.DSP)
+            {
+                if (len > 16)
+                    len = (16);
+            }
+            else
+            {
+                if (len > 8)
+                    len = (8);
+            }
+            ushort data0 = (ushort)((len << 8) | ((short)FirmwareCMD.ReadFlash));
+
+            ushort[] mass = new ushort[] { data0, addr, page };
+
+            return new ushort[] { data0, addr, page, new CRC().CRC16PerByte(mass, (mass.Length)) };
         }
 
         /// <summary>
@@ -164,6 +264,7 @@ namespace UFA.ProgrammFlash
         /// </summary>
         /// <param name="cmd">Номер команды</param>
         /// <param name="data">Текущая структура IntelHex, содержащая строку данных</param>
+        /// <param name="typeFrm">Тип прошивки</param>
         /// <returns></returns>
         private ushort[] HeaderIntelHexCreator(FirmwareCMD cmd, I32HEX data, TypeFRM typeFrm)
         {
@@ -374,10 +475,10 @@ namespace UFA.ProgrammFlash
         #endregion
 
         /// <summary>
-        /// Метод управления флеш-памятью
+        /// Метод, выполняющий передачу команд управления флеш-памятью.
         /// </summary>
         /// <param name="cmd">Требуемая команда</param>
-        /// <param name="frmt">Формат передачи (к = 0, к = 1)</param>
+        /// <param name="frmt">Формат передачи (к = 0 - передача, к = 1 - прием)</param>
         /// <param name="toSend">Массив данных для передачи (только для CMD 5 и 6)</param>
         /// <returns></returns>
         virtual public ProgrammState FlashCommand(CMD cmd, FORMATS_MILSTD frmt, ushort[] toSend = null)
@@ -398,7 +499,12 @@ namespace UFA.ProgrammFlash
                     }
                 }
                 else
-                    mass = new ushort[1];
+                {
+                    if (toSend == null)
+                        mass = new ushort[1];
+                    else
+                        mass = toSend;
+                }
 
                 if (SendFormat(DefaultFRMAddressing, frmt, ref mass, out error))
                 {
@@ -421,10 +527,38 @@ namespace UFA.ProgrammFlash
                 return new ProgrammState(PrgState.MILSTDError, "Соединение с платой не было установлено");
         }
 
-
+        /// <summary>
+        /// Метод, выполняющий передачу команд управления флеш-памятью.
+        /// </summary>
+        /// <param name="cmd">Команда флеш-памяти</param>
+        /// <param name="frmt">Формат передачи (к = 0 - передача, к = 1 - прием)</param>
+        /// <returns></returns>
         virtual protected ProgrammState FlashCommand(FirmwareCMD cmd, FORMATS_MILSTD frmt)
         {
             return FlashCommand(cmd, frmt);
+        }
+
+        /// <summary>
+        /// Метод, реализующий стирание данныех флеш-памяти внутри указанной страницы
+        /// </summary>
+        /// <param name="cmd"></param>
+        /// <param name="frmt"></param>
+        /// <param name="page"></param>
+        /// <returns></returns>
+        virtual public ProgrammState FlashCommand(CMD cmd, FORMATS_MILSTD frmt, ushort page)
+        {
+            ProgrammState prg;
+            if (frmt == FORMATS_MILSTD.F1)
+            {
+                ushort[] send = HeaderForEraseSectore(page, TypeFRM.DSP);
+                prg = FlashCommand(cmd, FORMATS_MILSTD.F1, send);
+            }
+            else
+            {
+                prg = FlashCommand(cmd, FORMATS_MILSTD.F2, _getOSMilstd);
+            }
+
+            return prg;
         }
 
         /// <summary>
@@ -433,6 +567,7 @@ namespace UFA.ProgrammFlash
         /// <returns></returns>
         virtual public ProgrammState StartProgramm(FileInfo FRM, TypeFRM type)
         {
+            ResetAddresses();
             if (_connectIsOpen)
             {
                 ReadFileFRM(FRM, type);
@@ -443,8 +578,46 @@ namespace UFA.ProgrammFlash
         }
 
         /// <summary>
+        /// Метод, чтения данных с флеш-памяти
+        /// </summary>
+        /// <param name="page">Номер страницы</param>
+        /// <param name="addr">Адрес внутри страницы</param>
+        /// <returns></returns>
+        virtual public Dictionary<PageAddr, Dictionary<ProgrammState, ushort[]>> ReadFlash(ushort page, ushort addr, ushort len)
+        {
+            ushort[] send = HeaderForReadFromFlash(page, addr, len, TypeFRM.DSP);
+            _getOSMilstd = new ushort[((send[0] & 0xFF00) >> 8)];
+            ProgrammState prg;
+            do
+            {
+                prg = FlashCommand((CMD)FirmwareCMD.ReadFlash, FORMATS_MILSTD.F1, send);
+                if (prg.state != PrgState.Finished)
+                    Thread.Sleep(200);
+            }
+            while (prg.state != PrgState.Finished);
+
+            do
+            {
+                prg = FlashCommand((CMD)FirmwareCMD.ReadFlash, FORMATS_MILSTD.F2, _getOSMilstd);
+                if (prg.state != PrgState.Finished)
+                    Thread.Sleep(200);
+
+            }
+            while (prg.state != PrgState.Finished);
+
+            Dictionary<PageAddr, Dictionary<ProgrammState, ushort[]>> dic = new Dictionary<PageAddr, Dictionary<ProgrammState, ushort[]>>();
+            Dictionary<ProgrammState, ushort[]> dic2 = new Dictionary<ProgrammState, ushort[]>();
+            dic2.Add(prg, _getOSMilstd);
+            dic.Add(new PageAddr(addr, page), dic2);
+
+
+            return new Dictionary<PageAddr, Dictionary<ProgrammState, ushort[]>>();
+        }
+
+        /// <summary>
         /// Метод проверки целостности файла IntelHex
         /// </summary>
+        /// <param name="FRM">Файл с прошивкой</param>
         virtual public void IntelHexCheckFile(FileInfo FRM)
         {
             using (StreamReader reader = new StreamReader(FRM.FullName))
@@ -466,11 +639,6 @@ namespace UFA.ProgrammFlash
                 }
             }
         }
-
-        virtual public void TestFile(FileInfo FRM, TypeFRM type)
-        {
-            ResetAddresses();
-            ReadFileFRM(FRM, type);
-        }
+        #endregion
     }
 }
