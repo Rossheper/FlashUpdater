@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<root>
+  <MILSTD1553B setting="configuration">
+    <NumberPlate>0</NumberPlate>
+  </MILSTD1553B>
+  <MILSTD1553B setting="programming">
+    <addr>10</addr>
+    <subaddr>30</subaddr>
+  </MILSTD1553B>
+  <Pages>
+    <DSP>
+      <StartPage>0xA</StartPage>
+    </DSP>
+    <PLIS>
+      <StartPage>0x0</StartPage>
+    </PLIS>
+  </Pages>
+</root>
