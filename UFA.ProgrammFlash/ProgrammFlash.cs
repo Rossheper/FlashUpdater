@@ -195,7 +195,7 @@ namespace UFA.ProgrammFlash
             _getOSMilstd = new ushort[1];
             _addrPages = new startAddrPagesFRM(0x000A, 0x0000);
             DefaultFRMAddressing = new FRM_ADDR_SUB(10, 30);
-            PagesZone = new FlashPages(new Pages(0x0A, 0x12), new Pages(0x00, 0x09));
+            PagesZone = new FlashPages(new Pages(0x0A, 0xB), new Pages(0x00, 0x08));
         }
 
         public ProgrammFlash(int numPlate) : this()
