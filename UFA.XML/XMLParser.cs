@@ -8,6 +8,9 @@ using System.Xml.Linq;
 using System.Text.RegularExpressions;
 namespace UFA.XML
 {
+    /// <summary>
+    /// Структура хранящая адрес и подадрес ОУ
+    /// </summary>
     public struct ADDR_SUB
     {
         public int addr;
@@ -19,14 +22,25 @@ namespace UFA.XML
             sub = s;
         }
     }
-    public class XMLParser
+
+    /// <summary>
+    /// Класс для разбора файла с настройками
+    /// </summary>
+    public class XMLSettingsParser
     {
-        public static string xmlFile = "Settings.xml";
-        private XDocument _rootdoc;
-        public XMLParser()
+        private string _regHex = @"[^0x]\w*";                   // шаблон для чтения HEX числа из строки формата (0x....)
+        private string _regDigit = @"\d+";                      // шаблон для чтения любой цифры из файла
+        private XDocument _rootdoc;                             // объект, содержащий информацию файла (Settings.xml) с настройками
+        public static string xmlFile = "Settings.xml";          // файл с текущими настройками
+
+        public XMLSettingsParser()
         {
             _rootdoc = XDocument.Load(xmlFile);
         }
+
+        /// <summary>
+        /// Читает XML-файл Settings.xml с настройками и возвращает номер платы MILSTD-1553B
+        /// </summary>
         public int GetNumberPlate
         {
             get
@@ -43,6 +57,10 @@ namespace UFA.XML
                 }
             }
         }
+
+        /// <summary>
+        /// Читает XML-файл Settings.xml с настройками и возвращает структуру с адресом и подадресом оконечного устройства (ОУ)
+        /// </summary>
         public ADDR_SUB GetAddrSub
         {
             get
@@ -51,17 +69,17 @@ namespace UFA.XML
                 ADDR_SUB addrSubLoad = new ADDR_SUB();
                 foreach (var c in addresses.Nodes())
                 {
-                    string data = Regex.Match(((XElement)c).Value, @"\d+").Value;
+                    string data = Regex.Match(((XElement)c).Value, _regDigit).Value;
                     switch (((XElement)c).Name.LocalName)
                     {
                         case "addr":
                             {
-                                addrSubLoad.addr = data == null ? 0 : Convert.ToInt32(data);
+                                addrSubLoad.addr = data == null ? 10 : Convert.ToInt32(data);
                                 break;
                             }
                         case "subaddr":
                             {
-                                addrSubLoad.sub = data == null ? 0 : Convert.ToInt32(data);
+                                addrSubLoad.sub = data == null ? 30 : Convert.ToInt32(data);
                                 break;
                             }
                     }
@@ -69,33 +87,50 @@ namespace UFA.XML
                 return addrSubLoad;
             }
         }
+
+        /// <summary>
+        /// Читает XML-файл Settings.xml с настройками и возвращает стартовый адрес страницы внутри флеш-памяти прошивки DSP
+        /// </summary>
         public int GetDspStartPage
         {
             get
             {
                 var page = from milstd in _rootdoc.Root.Descendants("DSP") select milstd;
-                foreach (var c3 in page.Nodes())
+                foreach (var startPage in page.Nodes())
                 {
-                    if (((XElement)c3).Name.LocalName.Contains("StartPage"))
+                    if (((XElement)startPage).Name.LocalName.Contains("StartPage"))
                     {
-                        string data = Regex.Match(((XElement)c3).Value, @"\d+").Value;
-                        return data == null ? 0 : Convert.ToInt32(data);
+                        // Элемент StartPage найден, читаю значение
+                        Int32 hexPage = 0;
+                        if (Int32.TryParse(Regex.Match(((XElement)startPage).Value, _regHex).Value, System.Globalization.NumberStyles.HexNumber, new System.Globalization.CultureInfo("en-US"), out hexPage))
+                            return hexPage;
+                        else
+                            return -1;
                     }
                 }
                 return -1;
             }
         }
+
+        /// <summary>
+        /// Читает XML-файл Settings.xml с настройками и возвращает стартовый адрес страницы внутри флеш-памяти прошивки PLIS
+        /// </summary>
         public int GetPLISStartPage
         {
             get
             {
+                // Вытаскиваю все элементы с тегом PLIS
                 var page = from milstd in _rootdoc.Root.Descendants("PLIS") select milstd;
-                foreach (var c3 in page.Nodes())
+                foreach (var startPage in page.Nodes())
                 {
-                    if (((XElement)c3).Name.LocalName.Contains("StartPage"))
+                    if (((XElement)startPage).Name.LocalName.Contains("StartPage"))
                     {
-                        string data = Regex.Match(((XElement)c3).Value, @"\d+").Value;
-                        return data == null ? 0 : Convert.ToInt32(data);
+                        // Элемент StartPage найден, читаю значение
+                        Int32 hexPage = 0;
+                        if (Int32.TryParse(Regex.Match(((XElement)startPage).Value, _regHex).Value, System.Globalization.NumberStyles.HexNumber, new System.Globalization.CultureInfo("en-US"), out hexPage))
+                            return hexPage;
+                        else
+                            return -1;
                     }
                 }
                 return -1;
