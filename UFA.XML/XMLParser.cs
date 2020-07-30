@@ -7,6 +7,7 @@ using System.Resources;
 using System.Xml.Linq;
 using System.Text.RegularExpressions;
 using UFA.Exceptions;
+
 namespace UFA.XML
 {
     /// <summary>
@@ -109,11 +110,8 @@ namespace UFA.XML
                     if (((XElement)startPage).Name.LocalName.Contains("StartPage"))
                     {
                         // Элемент StartPage найден, читаю значение
-                        Int32 hexPage = 0;
-                        if (Int32.TryParse(Regex.Match(((XElement)startPage).Value, _regHex).Value, System.Globalization.NumberStyles.HexNumber, new System.Globalization.CultureInfo("en-US"), out hexPage))
-                            return hexPage;
-                        else
-                            return -1;
+                        
+                        return StringHexToInt(((XElement)startPage).Value);
                     }
                 }
                 return -1;
@@ -134,15 +132,25 @@ namespace UFA.XML
                     if (((XElement)startPage).Name.LocalName.Contains("StartPage"))
                     {
                         // Элемент StartPage найден, читаю значение
-                        Int32 hexPage = 0;
-                        if (Int32.TryParse(Regex.Match(((XElement)startPage).Value, _regHex).Value, System.Globalization.NumberStyles.HexNumber, new System.Globalization.CultureInfo("en-US"), out hexPage))
-                            return hexPage;
-                        else
-                            return -1;
+                        return StringHexToInt(((XElement)startPage).Value);
                     }
                 }
                 return -1;
             }
+        }
+
+        /// <summary>
+        /// Преобразование строки с числом HEX в int
+        /// </summary>
+        /// <param name="startPage">Строка с числом в HEX формате</param>
+        /// <returns></returns>
+        private int StringHexToInt(string startPage)
+        {
+            Int32 hexPage = 0;
+            if (Int32.TryParse(Regex.Match(startPage, _regHex).Value, System.Globalization.NumberStyles.HexNumber, new System.Globalization.CultureInfo("en-US"), out hexPage))
+                return hexPage;
+            else
+                return -1;
         }
     }
 }
