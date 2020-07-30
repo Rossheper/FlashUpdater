@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Resources;
 using System.Xml.Linq;
 using System.Text.RegularExpressions;
+using UFA.Exceptions;
 namespace UFA.XML
 {
     /// <summary>
@@ -35,7 +36,14 @@ namespace UFA.XML
 
         public XMLSettingsParser()
         {
-            _rootdoc = XDocument.Load(xmlFile);
+            try
+            {
+                _rootdoc = XDocument.Load(xmlFile);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         /// <summary>
