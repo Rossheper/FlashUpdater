@@ -1,0 +1,110 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        "TKB974.STD1553B"
+    </assembly>
+    <members>
+        <member name="M:TKB995STD1553B.Manchester.WaitInt(System.UInt16)">
+            <summary>Обрабатывает прерывание на получение данных.
+</summary>
+            <param name="wCtrlCode">Used to indicate status.</param>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.sendData(System.Int16,System.Int16,System.Int16,System.Int16,System.Int16,System.UInt16*)">
+            <summary>Метод, производящий отправку данных на ОУ.
+</summary>
+            <param name="oldAddr">Старый адрес оконечного устройства.</param>
+            <param name="addrOy">Текущий адрес оконечного устройства.</param>
+            <param name="K">Направление передачи (к = 0 - передача данных, к = 1 - получение).</param>
+            <param name="subAddr">Текущий подадрес.</param>
+            <param name="ncd">Количество передаваемых слов данных (не более 32).</param>
+            <param name="massToSend">Указатель на массив данных. Формат uint16.</param>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.toFreePlate(System.Int32)">
+            <summary>Метод, производящий освобождение платы.
+</summary>
+            <param name="currentPlate">Текущий номер платы.</param>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.configuration(System.Int32)">
+            <summary>Метод, производящий захват выбранной платы манчестера.
+</summary>
+            <param name="currentPlate">Текущий номер платы.</param>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.ConcatinateData(System.Int16,System.Int16)">
+            <summary>Метод, собирающий полученное слово из 2 байт.
+</summary>
+            <param name="lowData">Младший байт (хранится в младшем байте слова).</param>
+            <param name="highData">&gt;Старший байт (хранится в младшем байте слова).</param>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.inverseData(System.Int16)">
+            <summary>Метод, разворачивающий данные с размером в 1 байт
+</summary>
+            <param name="data">Байт данных (хранится в младшем байте слова).</param>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.GetSubAddress">
+            <summary>Получение текущего подадреса
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.Frame">
+            <summary>Получение текущего фрейма
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.CurrentHandle">
+            <summary>Получение и установка текущего HANDLE
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.OCErr">
+            <summary>Получение кода ошибки
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.CurrentCommandWord">
+            <summary>Получение текущего командного слова
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.Mode">
+            <summary>Получение и установка текущего режима
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.Received">
+            <summary>Получение массива притяных данных от ОУ
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.PZ">
+            <summary>Получение и установка ссылки на массив ПЗ
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.GetMilstdBus">
+            <summary>Свойства получения текущей шины интерфейса MILSTD1553 (A или B)
+</summary>
+        </member>
+        <member name="P:TKB995STD1553B.Manchester.SetMilstdBus">
+            <summary>Свойства установки используемой шины интерфейса MILSTD1553 (A или B)
+</summary>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.Dispose">
+            <summary>Деструктор класса работы с интерфейсом MILSTD1553.
+</summary>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.#ctor">
+            <summary>Конструктор класса работы с интерфейсом MILSTD1553.
+</summary>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.errorParse(System.Int16)">
+            <summary> Метод генерации кода ошибок
+</summary>
+            <param name="oc">Ответное слово от оконечного устройства.</param>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.formatKC(System.Int16,System.Int16,System.Int16,System.Int16)">
+            <summary> Метод, формирующий командное слово
+</summary>
+            <param name="addrOy">Текущий адрес оконечного устройства.</param>
+            <param name="K">Направление передачи (к = 0 - передача данных, к = 1 - получение).</param>
+            <param name="subAddr">Текущий подадрес.</param>
+            <param name="ncd">Количество передаваемых слов данных (не более 32).</param>
+        </member>
+        <member name="M:TKB995STD1553B.Manchester.sendingControl(System.Int16)">
+            <summary> Метод, управляющий приемом/передачей
+</summary>
+            <param name="K">Направление передачи (к = 0 - передача данных, к = 1 - получение).</param>
+        </member>
+    </members>
+</doc>
