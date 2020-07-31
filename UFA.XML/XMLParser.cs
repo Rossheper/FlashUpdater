@@ -114,7 +114,7 @@ namespace UFA.XML
                         return StringHexToInt(((XElement)startPage).Value);
                     }
                 }
-                return -1;
+                return 0;
             }
         }
 
@@ -135,7 +135,7 @@ namespace UFA.XML
                         return StringHexToInt(((XElement)startPage).Value);
                     }
                 }
-                return -1;
+                return 0;
             }
         }
 
@@ -150,7 +150,7 @@ namespace UFA.XML
             if (Int32.TryParse(Regex.Match(startPage, _regHex).Value, System.Globalization.NumberStyles.HexNumber, new System.Globalization.CultureInfo("en-US"), out hexPage))
                 return hexPage;
             else
-                return -1;
+                return 0;
         }
     }
 }
