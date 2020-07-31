@@ -48,7 +48,15 @@
             this.button_progPLISfile = new System.Windows.Forms.CheckBox();
             this.toolTip_PLIS = new System.Windows.Forms.ToolTip(this.components);
             this.toolStripStatusState = new System.Windows.Forms.Label();
+            this.groupBoxSettings = new System.Windows.Forms.GroupBox();
+            this.dataGridViewSettingsParams = new System.Windows.Forms.DataGridView();
+            this.gridContainerBindingSource = new System.Windows.Forms.BindingSource(this.components);
+            this.nameFieldDataGridViewTextBoxColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.valueFieldDataGridViewTextBoxColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.statusStripMenu.SuspendLayout();
+            this.groupBoxSettings.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewSettingsParams)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.gridContainerBindingSource)).BeginInit();
             this.SuspendLayout();
             // 
             // textBox_nameFRMfile
@@ -75,9 +83,9 @@
             this.statusStripMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripProgressBar,
             this.toolStripStatus});
-            this.statusStripMenu.Location = new System.Drawing.Point(0, 232);
+            this.statusStripMenu.Location = new System.Drawing.Point(0, 277);
             this.statusStripMenu.Name = "statusStripMenu";
-            this.statusStripMenu.Size = new System.Drawing.Size(384, 22);
+            this.statusStripMenu.Size = new System.Drawing.Size(591, 22);
             this.statusStripMenu.TabIndex = 3;
             this.statusStripMenu.Text = "statusStrip1";
             // 
@@ -85,6 +93,7 @@
             // 
             this.toolStripProgressBar.Name = "toolStripProgressBar";
             this.toolStripProgressBar.Size = new System.Drawing.Size(100, 16);
+            this.toolStripProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             // 
             // toolStripStatus
             // 
@@ -97,9 +106,9 @@
             this.richTextBoxLog.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.richTextBoxLog.Location = new System.Drawing.Point(12, 107);
+            this.richTextBoxLog.Location = new System.Drawing.Point(12, 134);
             this.richTextBoxLog.Name = "richTextBoxLog";
-            this.richTextBoxLog.Size = new System.Drawing.Size(360, 122);
+            this.richTextBoxLog.Size = new System.Drawing.Size(567, 140);
             this.richTextBoxLog.TabIndex = 4;
             this.richTextBoxLog.Text = "";
             // 
@@ -160,7 +169,7 @@
             this.checkBox_version.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBox_version.AutoSize = true;
             this.checkBox_version.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.checkBox_version.Location = new System.Drawing.Point(291, 236);
+            this.checkBox_version.Location = new System.Drawing.Point(498, 281);
             this.checkBox_version.Name = "checkBox_version";
             this.checkBox_version.Size = new System.Drawing.Size(71, 17);
             this.checkBox_version.TabIndex = 11;
@@ -205,17 +214,69 @@
             // 
             this.toolStripStatusState.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.toolStripStatusState.AutoEllipsis = true;
-            this.toolStripStatusState.Location = new System.Drawing.Point(150, 237);
+            this.toolStripStatusState.Location = new System.Drawing.Point(150, 282);
             this.toolStripStatusState.Name = "toolStripStatusState";
             this.toolStripStatusState.Size = new System.Drawing.Size(141, 15);
             this.toolStripStatusState.TabIndex = 14;
             this.toolStripStatusState.Text = "Ожидание...";
             // 
+            // groupBoxSettings
+            // 
+            this.groupBoxSettings.Controls.Add(this.dataGridViewSettingsParams);
+            this.groupBoxSettings.Location = new System.Drawing.Point(378, 12);
+            this.groupBoxSettings.Name = "groupBoxSettings";
+            this.groupBoxSettings.Size = new System.Drawing.Size(201, 116);
+            this.groupBoxSettings.TabIndex = 15;
+            this.groupBoxSettings.TabStop = false;
+            this.groupBoxSettings.Text = "Текущие настройки";
+            // 
+            // dataGridViewSettingsParams
+            // 
+            this.dataGridViewSettingsParams.AllowUserToAddRows = false;
+            this.dataGridViewSettingsParams.AllowUserToDeleteRows = false;
+            this.dataGridViewSettingsParams.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.dataGridViewSettingsParams.AutoGenerateColumns = false;
+            this.dataGridViewSettingsParams.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dataGridViewSettingsParams.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.nameFieldDataGridViewTextBoxColumn,
+            this.valueFieldDataGridViewTextBoxColumn});
+            this.dataGridViewSettingsParams.DataSource = this.gridContainerBindingSource;
+            this.dataGridViewSettingsParams.Location = new System.Drawing.Point(7, 19);
+            this.dataGridViewSettingsParams.Name = "dataGridViewSettingsParams";
+            this.dataGridViewSettingsParams.ReadOnly = true;
+            this.dataGridViewSettingsParams.RowHeadersWidth = 20;
+            this.dataGridViewSettingsParams.RowTemplate.Height = 16;
+            this.dataGridViewSettingsParams.Size = new System.Drawing.Size(184, 89);
+            this.dataGridViewSettingsParams.TabIndex = 0;
+            // 
+            // gridContainerBindingSource
+            // 
+            this.gridContainerBindingSource.DataSource = typeof(UpdateFirmwareAE.MainForm.GridContainer);
+            // 
+            // nameFieldDataGridViewTextBoxColumn
+            // 
+            this.nameFieldDataGridViewTextBoxColumn.DataPropertyName = "NameField";
+            this.nameFieldDataGridViewTextBoxColumn.HeaderText = "Параметр";
+            this.nameFieldDataGridViewTextBoxColumn.Name = "nameFieldDataGridViewTextBoxColumn";
+            this.nameFieldDataGridViewTextBoxColumn.ReadOnly = true;
+            this.nameFieldDataGridViewTextBoxColumn.Width = 85;
+            // 
+            // valueFieldDataGridViewTextBoxColumn
+            // 
+            this.valueFieldDataGridViewTextBoxColumn.DataPropertyName = "ValueField";
+            this.valueFieldDataGridViewTextBoxColumn.HeaderText = "Значение";
+            this.valueFieldDataGridViewTextBoxColumn.Name = "valueFieldDataGridViewTextBoxColumn";
+            this.valueFieldDataGridViewTextBoxColumn.ReadOnly = true;
+            this.valueFieldDataGridViewTextBoxColumn.Width = 60;
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(384, 254);
+            this.ClientSize = new System.Drawing.Size(591, 299);
+            this.Controls.Add(this.groupBoxSettings);
             this.Controls.Add(this.toolStripStatusState);
             this.Controls.Add(this.button_progPLISfile);
             this.Controls.Add(this.textBox_namePLISfile);
@@ -236,6 +297,9 @@
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.statusStripMenu.ResumeLayout(false);
             this.statusStripMenu.PerformLayout();
+            this.groupBoxSettings.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewSettingsParams)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.gridContainerBindingSource)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -246,7 +310,6 @@
         private System.Windows.Forms.TextBox textBox_nameFRMfile;
         private System.Windows.Forms.Button button_openFRMfile;
         private System.Windows.Forms.StatusStrip statusStripMenu;
-        private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar;
         private System.Windows.Forms.RichTextBox richTextBoxLog;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatus;
         private System.Windows.Forms.OpenFileDialog openFileDialogFRM;
@@ -261,6 +324,12 @@
         private System.Windows.Forms.CheckBox button_progPLISfile;
         private System.Windows.Forms.ToolTip toolTip_PLIS;
         private System.Windows.Forms.Label toolStripStatusState;
+        private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar;
+        private System.Windows.Forms.GroupBox groupBoxSettings;
+        private System.Windows.Forms.DataGridView dataGridViewSettingsParams;
+        private System.Windows.Forms.BindingSource gridContainerBindingSource;
+        private System.Windows.Forms.DataGridViewTextBoxColumn nameFieldDataGridViewTextBoxColumn;
+        private System.Windows.Forms.DataGridViewTextBoxColumn valueFieldDataGridViewTextBoxColumn;
     }
 }
 

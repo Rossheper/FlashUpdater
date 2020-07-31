@@ -11,10 +11,54 @@ using System.Windows.Forms;
 using UFA.ProgrammFlash;
 using System.Security.Cryptography;
 using TKB995STD1553B;
+using UFA.XML;
+using System.Reflection;
+
 namespace UpdateFirmwareAE
 {
     public partial class MainForm : Form
     {
+        public class GridContainer
+        {
+            public string NameField
+            {
+                get; set;
+            }
+            public string ValueField
+            {
+                get; set;
+            }
+
+            public GridContainer()
+            {
+                NameField = null;
+                ValueField = null;
+            }
+            public GridContainer(string name, string val)
+            {
+                NameField = name;
+                ValueField = val;
+            }
+        }
+        // Пока не понял как изменить цвет
+        public class ProgressBarExt : ProgressBar
+        {
+            public Brush ProgressBrush { get; set; }
+            public ProgressBarExt() : base()
+            {
+                // Цвет по-умолчанию
+                ProgressBrush = Brushes.Green;
+                this.SetStyle(ControlStyles.UserPaint, true);
+            }
+            protected override void OnPaint(PaintEventArgs e)
+            {
+
+                base.OnPaint(e);
+
+                e.Graphics.FillRectangle(Brushes.Red, e.ClipRectangle);
+            }
+        }
+
         public class Cont
         {
             public ProgrammFlash progFlashObj;
@@ -34,6 +78,7 @@ namespace UpdateFirmwareAE
                 return container.progFlashObj;
             }
         }
+
         /// <summary>
         /// Класс ошибок Валидации и состояний
         /// </summary>
@@ -61,7 +106,8 @@ namespace UpdateFirmwareAE
         // Переменная с глобальной (общей ошибкой) для старой версии прошивки
         private bool _commonError = false;
 
-        public Manchester ml;
+        private XMLSettingsParser _loadSettings;
+
         #endregion
         public MainForm()
         {
@@ -70,7 +116,9 @@ namespace UpdateFirmwareAE
             openFileDialogFRM.RestoreDirectory = true;
             openFileDialog_PLIS.RestoreDirectory = true;
         }
+
         #region Создание и инициализация новых объектов управления
+
         /// <summary>
         /// Создание Кнопки, выполняющей функции программирования ПЛИС и DPS одновременно
         /// </summary>
@@ -127,122 +175,147 @@ namespace UpdateFirmwareAE
                 toolStripProgressBar.Maximum = 4;
                 button_progFRMfile.Enabled = false;
 
-                richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключение прерываний в АЭ") + "\n");                                 
-                                                                                                                                              // ProgrammFlash.ProgrammState res;
-                                                                                                                                              // Отключаю прерывания (Ф1 и Ф2)
-                #region Старый код
-                //ProgrammFlash.ProgrammState result = await Task.Run(() =>
-                //{
+                // Начало программирования
+                await StartProgramming(_file_FRM, TypeFRM.DSP);
 
-                //    result = _frm.FlashCommand(ProgrammFlash.CMD.DisableInterrupt, FORMATS_MILSTD.F1);
-                //    if (result.state == ProgrammFlash.PrgState.Finished)
-                //    {
-                //        do
-                //        {
-                //            System.Threading.Thread.Sleep(200);
-                //            result = _frm.FlashCommand(ProgrammFlash.CMD.DisableInterrupt, FORMATS_MILSTD.F2);
-                //        }
-                //        while (result.state != ProgrammFlash.PrgState.Finished);
-                //    }
-
-                //    return result;
-                //});
-
-                //if (result.state == ProgrammFlash.PrgState.Finished)
-                //{
-                //    richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно") + "\n");
-                //    richTextBoxLog.AppendText((toolStripStatusState.Text = "Начата процедура очистки флеш-памяти страниц DSP") + "\n");
-                //    // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
-                //    result = await Task.Run(() =>
-                //    {
-                //        // Обход всех страниц
-                //        for (ushort page = 0xA; page <= 0xB; page++)
-                //        {
-                //            do
-                //            {
-                //                result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashSector, FORMATS_MILSTD.F1, page);                       // 2. Очистка секторов
-                //            }
-                //            while (result.state != ProgrammFlash.PrgState.Finished);
-
-                //            do
-                //            {
-                //                System.Threading.Thread.Sleep(1000); // Пауза 1 секунда
-                //                result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashSector, FORMATS_MILSTD.F2);
-                //            }
-                //            while (result.state != ProgrammFlash.PrgState.Finished);
-
-                //        }
-                //        return new ProgrammFlash.ProgrammState(ProgrammFlash.PrgState.Finished, "Очистка секторов успешна!");
-                //    });
-
-
-                //    if (result.state == ProgrammFlash.PrgState.Finished)
-                //    {
-                //        richTextBoxLog.AppendText((toolStripStatusState.Text = "Страницы флеш-памяти успешно очищены") + "\n");
-                //        richTextBoxLog.AppendText((toolStripStatusState.Text = "Начало программирования DSP") + "\n");
-
-                //        result = await Task.Run(() =>
-                //        {
-                //            return _frm.StartProgramm(_file_FRM, ProgrammFlash.TypeFRM.DSP);                                                // 3. Прошивка DSP
-                //        });
-
-                //        if (result.state == ProgrammFlash.PrgState.Finished)
-                //        {
-                //            // Программирование DPS
-                //            richTextBoxLog.AppendText((toolStripStatusState.Text = "DSP успешно перепрограммировано") + "\n");
-                //            richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключите питание АЭ") + "\n");
-                //        }
-                //    }
-                //}
-                //else
-                //{
-                //    richTextBoxLog.AppendText(result.message + "\n");
-                //    MessageBox.Show(result.message);
-                //}
-                #endregion
-
-                ProgrammFlash.ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
-                toolStripProgressBar.Increment(1);
-
-                if (result.state == ProgrammFlash.PrgState.Finished)
-                {
-                    richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно") + "\n");
-                    richTextBoxLog.AppendText((toolStripStatusState.Text = "Начата процедура очистки флеш-памяти страниц DSP") + "\n");
-                    // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
-                    for (ushort page = 0xA; page <= 0xB; page++)
-                    {
-                        result = await EraseFlashByPage(result, page);                                                          // 2. Очистка сектора флеш-памяти
-                        toolStripProgressBar.Increment(1);
-                    }
-
-                    if (result.state == ProgrammFlash.PrgState.Finished)
-                    {
-                        richTextBoxLog.AppendText((toolStripStatusState.Text = "Страницы флеш-памяти успешно очищены") + "\n");
-                        richTextBoxLog.AppendText((toolStripStatusState.Text = "Начало программирования DSP") + "\n");
-
-                        result = await ProgrammingDSP(result);                                                                  // 3. Прошивка DSP
-                        toolStripProgressBar.Increment(1);
-
-                        if (result.state == ProgrammFlash.PrgState.Finished)
-                        {
-                            // Программирование DPS
-                            richTextBoxLog.AppendText((toolStripStatusState.Text = "DSP успешно перепрограммировано") + "\n");
-                            richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключите питание АЭ") + "\n");
-                        }
-                    }
-                }
-                else
-                {
-                    richTextBoxLog.AppendText((toolStripStatusState.Text = result.message) + "\n");
-                    MessageBox.Show(result.message);
-                }
-                
                 button_progFRMfile.CheckState = CheckState.Unchecked;
                 button_progFRMfile.Enabled = true;
             }
         }
 
-        private async Task<ProgrammFlash.ProgrammState> EraseFlashByPage(ProgrammFlash.ProgrammState result, ushort page)
+        private async Task StartProgramming(FileInfo file, TypeFRM type)
+        {
+            richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключение прерываний в АЭ") + "\n");
+            // ProgrammFlash.ProgrammState res;
+            // Отключаю прерывания (Ф1 и Ф2)
+            #region Старый код
+            //ProgrammFlash.ProgrammState result = await Task.Run(() =>
+            //{
+
+            //    result = _frm.FlashCommand(ProgrammFlash.CMD.DisableInterrupt, FORMATS_MILSTD.F1);
+            //    if (result.state == ProgrammFlash.PrgState.Finished)
+            //    {
+            //        do
+            //        {
+            //            System.Threading.Thread.Sleep(200);
+            //            result = _frm.FlashCommand(ProgrammFlash.CMD.DisableInterrupt, FORMATS_MILSTD.F2);
+            //        }
+            //        while (result.state != ProgrammFlash.PrgState.Finished);
+            //    }
+
+            //    return result;
+            //});
+
+            //if (result.state == ProgrammFlash.PrgState.Finished)
+            //{
+            //    richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно") + "\n");
+            //    richTextBoxLog.AppendText((toolStripStatusState.Text = "Начата процедура очистки флеш-памяти страниц DSP") + "\n");
+            //    // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
+            //    result = await Task.Run(() =>
+            //    {
+            //        // Обход всех страниц
+            //        for (ushort page = 0xA; page <= 0xB; page++)
+            //        {
+            //            do
+            //            {
+            //                result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashSector, FORMATS_MILSTD.F1, page);                       // 2. Очистка секторов
+            //            }
+            //            while (result.state != ProgrammFlash.PrgState.Finished);
+
+            //            do
+            //            {
+            //                System.Threading.Thread.Sleep(1000); // Пауза 1 секунда
+            //                result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashSector, FORMATS_MILSTD.F2);
+            //            }
+            //            while (result.state != ProgrammFlash.PrgState.Finished);
+
+            //        }
+            //        return new ProgrammFlash.ProgrammState(ProgrammFlash.PrgState.Finished, "Очистка секторов успешна!");
+            //    });
+
+
+            //    if (result.state == ProgrammFlash.PrgState.Finished)
+            //    {
+            //        richTextBoxLog.AppendText((toolStripStatusState.Text = "Страницы флеш-памяти успешно очищены") + "\n");
+            //        richTextBoxLog.AppendText((toolStripStatusState.Text = "Начало программирования DSP") + "\n");
+
+            //        result = await Task.Run(() =>
+            //        {
+            //            return _frm.StartProgramm(_file_FRM, ProgrammFlash.TypeFRM.DSP);                                                // 3. Прошивка DSP
+            //        });
+
+            //        if (result.state == ProgrammFlash.PrgState.Finished)
+            //        {
+            //            // Программирование DPS
+            //            richTextBoxLog.AppendText((toolStripStatusState.Text = "DSP успешно перепрограммировано") + "\n");
+            //            richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключите питание АЭ") + "\n");
+            //        }
+            //    }
+            //}
+            //else
+            //{
+            //    richTextBoxLog.AppendText(result.message + "\n");
+            //    MessageBox.Show(result.message);
+            //}
+            #endregion
+
+            ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
+            toolStripProgressBar.Increment(1);
+
+            if (result.state == PrgState.Finished)
+            {
+                richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно") + "\n");
+                richTextBoxLog.AppendText((toolStripStatusState.Text = "Начата процедура очистки флеш-памяти страниц DSP") + "\n");
+                // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
+
+                if (type == TypeFRM.DSP)
+                {
+
+                    for (ushort page = _frm.PagesZone.DSP.Minimum; page < _frm.PagesZone.DSP.Maximum; page++)
+                    {
+                        result = await EraseFlashByPage(result, page);                                                          // 2. Очистка сектора флеш-памяти
+                        toolStripProgressBar.Increment(1);
+                    }
+                }
+                else
+                {
+                    for (ushort page = _frm.PagesZone.PLIS.Minimum; page < _frm.PagesZone.PLIS.Maximum; page++)
+                    {
+                        result = await EraseFlashByPage(result, page);                                                          // 2. Очистка сектора флеш-памяти
+                        toolStripProgressBar.Increment(1);
+                    }
+                }
+
+                if (result.state == PrgState.Finished)
+                {
+                    richTextBoxLog.AppendText((toolStripStatusState.Text = "Страницы флеш-памяти успешно очищены") + "\n");
+                    if (type == TypeFRM.DSP)
+                        richTextBoxLog.AppendText((toolStripStatusState.Text = "Начало программирования DSP") + "\n");
+                    else
+                        richTextBoxLog.AppendText(toolStripStatusState.Text = "Начало программирования ПЛИС" + "\n");
+
+                    result = await Programming(result, file, type);                                                                  // 3. Прошивка DSP
+                    toolStripProgressBar.Increment(1);
+
+                    if (result.state == PrgState.Finished)
+                    {
+                        // Программирование DPS
+                        if (type == TypeFRM.DSP)
+                            richTextBoxLog.AppendText((toolStripStatusState.Text = "DSP успешно перепрограммировано") + "\n");
+                        else
+                            richTextBoxLog.AppendText(toolStripStatusState.Text = "ПЛИС успешно перепрограммировано" + "\n");
+                        richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключите питание АЭ") + "\n");
+                    }
+                }
+            }
+            else
+            {
+                richTextBoxLog.AppendText((toolStripStatusState.Text = result.message) + "\n");
+                MessageBox.Show(result.message);
+            }
+        }
+
+        private async Task<ProgrammState> EraseFlashByPage(ProgrammState result, ushort page)
         {
             result = await Task.Run(() =>
             {
@@ -250,19 +323,19 @@ namespace UpdateFirmwareAE
 
                 do
                 {
-                    result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashSector, FORMATS_MILSTD.F1, page);                       // 2. Очистка секторов
+                    result = _frm.FlashCommand(CMD.EraseFlashSector, FORMATS_MILSTD.F1, page);                       // 2. Очистка секторов
                 }
-                while (result.state != ProgrammFlash.PrgState.Finished);
+                while (result.state != PrgState.Finished);
 
                 do
                 {
                     System.Threading.Thread.Sleep(1000); // Пауза 1 секунда
-                    result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashSector, FORMATS_MILSTD.F2);
+                    result = _frm.FlashCommand(CMD.EraseFlashSector, FORMATS_MILSTD.F2);
                 }
-                while (result.state != ProgrammFlash.PrgState.Finished);
+                while (result.state != PrgState.Finished);
 
 
-                return new ProgrammFlash.ProgrammState(result, "Очистка секторов успешна!");
+                return new ProgrammState(result, "Очистка секторов успешна!");
             });
             return result;
         }
@@ -274,15 +347,40 @@ namespace UpdateFirmwareAE
         /// <param name="e"></param>
         private void MainForm_Load(object sender, EventArgs e)
         {
-            GenErrorProviders();                    // Создание словаря TextBox - ErrorProvider
-            CheckVersion(checkBox_version.Checked);
-            _frm = new ProgrammFlash();
-            _frm.DefaultFRMAddressing = new ProgrammFlash.FRM_ADDR_SUB(10, 30);
+            try
+            {
+                _loadSettings = new XMLSettingsParser();
+            }
+            catch (Exception err)
+            {
+                MessageBox.Show(String.Format("Файл с настройками не был загружен, поврежден или отсутствует!\n{0}", err.Message), "Ошибка!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            ADDR_SUB loadAS = _loadSettings.GetAddrSub;
+            int plate = _loadSettings.GetNumberPlate;
+
+            int pageStartDSP = _loadSettings.GetDspStartPage;
+            int pageStartPLIS = _loadSettings.GetPLISStartPage;
+
+            _frm = new ProgrammFlash(new ProgrammFlash.FRM_ADDR_SUB((short)loadAS.addr, (short)loadAS.sub), plate);
+
+            _frm.PagesZone.DSP.Minimum = (ushort)pageStartDSP;
+            _frm.PagesZone.PLIS.Minimum = (ushort)pageStartPLIS;
+
             if (_frm.ConnectToMILSTD == false)
             {
                 MessageBox.Show("Связь с платой интерфейса MILSTD-1553B производства Элкус не установлена!", "Внимание!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 this.Close();
             }
+
+            GenErrorProviders();                    // Создание словаря TextBox - ErrorProvider
+            CheckVersion(checkBox_version.Checked);
+
+            gridContainerBindingSource.Add(new GridContainer("Номер платы", plate.ToString()));
+            gridContainerBindingSource.Add(new GridContainer("Адрес ОУ", loadAS.addr.ToString()));
+            gridContainerBindingSource.Add(new GridContainer("Подадрес ОУ", loadAS.sub.ToString()));
+            gridContainerBindingSource.Add(new GridContainer("Страница DSP", pageStartDSP.ToString("X")));
+            gridContainerBindingSource.Add(new GridContainer("Страница PLIS", pageStartPLIS.ToString("X")));
         }
 
         /// <summary>
@@ -319,7 +417,7 @@ namespace UpdateFirmwareAE
         private async void btn_old_version_prog_Click(object sender, EventArgs e)
         {
             CheckBox currCheck = sender as CheckBox;
-            if ((currCheck!= null) && (currCheck.Checked))
+            if ((currCheck != null) && (currCheck.Checked))
             {
                 _frm.DefaultFRMAddressing = new ProgrammFlash.FRM_ADDR_SUB(10, 16);
 
@@ -330,12 +428,10 @@ namespace UpdateFirmwareAE
 
                 richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ" + "\n");
 
-
-
-                ProgrammFlash.ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
+                ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
                 toolStripProgressBar.Increment(1);
 
-                if (result.state == ProgrammFlash.PrgState.Finished)
+                if (result.state == PrgState.Finished)
                 {
                     richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно" + "\n");
                     richTextBoxLog.AppendText(toolStripStatusState.Text = "Начата процедура очистки флеш-памяти АЭ" + "\n");
@@ -344,7 +440,7 @@ namespace UpdateFirmwareAE
                     result = await EraseFlashAll(result);                                                                       // 2. Очистка флешки
                     toolStripProgressBar.Increment(1);
 
-                    if (result.state == ProgrammFlash.PrgState.Finished)
+                    if (result.state == PrgState.Finished)
                     {
 
                         richTextBoxLog.AppendText(toolStripStatusState.Text = "Флеш-память успешно очищена" + "\n");
@@ -355,7 +451,7 @@ namespace UpdateFirmwareAE
                         result = await ProgrammingPLIS(result);                                                                 // 3. Прошивка PLIS
                         toolStripProgressBar.Increment(1);
 
-                        if (result.state == ProgrammFlash.PrgState.Finished)
+                        if (result.state == PrgState.Finished)
                         {
                             // Программирование ПЛИС
                             richTextBoxLog.AppendText(toolStripStatusState.Text = "ПЛИС успешно перепрограммировано" + "\n");
@@ -365,7 +461,7 @@ namespace UpdateFirmwareAE
                             result = await ProgrammingDSP(result);                                                              // 4. Прошивка DSP
                             toolStripProgressBar.Increment(1);
 
-                            if (result.state == ProgrammFlash.PrgState.Finished)
+                            if (result.state == PrgState.Finished)
                             {
                                 // Программирование DPS
                                 richTextBoxLog.AppendText(toolStripStatusState.Text = "DPS успешно перепрограммировано" + "\n");
@@ -379,6 +475,8 @@ namespace UpdateFirmwareAE
                     richTextBoxLog.AppendText(result.message + "\n");
                     MessageBox.Show(result.message);
                 }
+                currCheck.CheckState = CheckState.Unchecked;
+                currCheck.Enabled = true;
             }
             richTextBoxLog.ScrollToCaret();
         }
@@ -388,11 +486,11 @@ namespace UpdateFirmwareAE
         /// </summary>
         /// <param name="result">Объект с описанием текущего состояния</param>
         /// <returns></returns>
-        private async Task<ProgrammFlash.ProgrammState> ProgrammingDSP(ProgrammFlash.ProgrammState result)
+        private async Task<ProgrammState> ProgrammingDSP(ProgrammState result)
         {
             result = await Task.Run(() =>
             {
-                return Programming(result, _file_FRM, ProgrammFlash.TypeFRM.DSP);// _frm.StartProgramm(_file_FRM, ProgrammFlash.TypeFRM.DSP);
+                return Programming(result, _file_FRM, TypeFRM.DSP);// _frm.StartProgramm(_file_FRM, ProgrammFlash.TypeFRM.DSP);
             });
             return result;
         }
@@ -402,11 +500,11 @@ namespace UpdateFirmwareAE
         /// </summary>
         /// <param name="result">Объект с описанием текущего состояния</param>
         /// <returns></returns>
-        private async Task<ProgrammFlash.ProgrammState> ProgrammingPLIS(ProgrammFlash.ProgrammState result)
+        private async Task<ProgrammState> ProgrammingPLIS(ProgrammState result)
         {
             result = await Task.Run(() =>
             {
-                return Programming(result, _file_PLIS, ProgrammFlash.TypeFRM.PLIS);//_frm.StartProgramm(_file_PLIS, ProgrammFlash.TypeFRM.PLIS);
+                return Programming(result, _file_PLIS, TypeFRM.PLIS);//_frm.StartProgramm(_file_PLIS, ProgrammFlash.TypeFRM.PLIS);
             });
             return result;
         }
@@ -418,7 +516,7 @@ namespace UpdateFirmwareAE
         /// <param name="file">Файл с прошивкой</param>
         /// <param name="type">Тип вычислителя</param>
         /// <returns></returns>
-        private async Task<ProgrammFlash.ProgrammState> Programming(ProgrammFlash.ProgrammState result, FileInfo file, ProgrammFlash.TypeFRM type)
+        private async Task<ProgrammState> Programming(ProgrammState result, FileInfo file, TypeFRM type)
         {
             result = await Task.Run(() =>
             {
@@ -432,20 +530,20 @@ namespace UpdateFirmwareAE
         /// </summary>
         /// <param name="result">Объект с описанием текущего состояния</param>
         /// <returns></returns>
-        private async Task<ProgrammFlash.ProgrammState> EraseFlashAll(ProgrammFlash.ProgrammState result)
+        private async Task<ProgrammState> EraseFlashAll(ProgrammState result)
         {
             result = await Task.Run(() =>
             {
-                result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashALL, FORMATS_MILSTD.F1);
-                if (result.state == ProgrammFlash.PrgState.Finished)
+                result = _frm.FlashCommand(CMD.EraseFlashALL, FORMATS_MILSTD.F1);
+                if (result.state == PrgState.Finished)
                 {
                     do
                     {
                         System.Threading.Thread.Sleep(1000); // Пауза 1 секунда
-                        result = _frm.FlashCommand(ProgrammFlash.CMD.EraseFlashALL, FORMATS_MILSTD.F2);
+                        result = _frm.FlashCommand(CMD.EraseFlashALL, FORMATS_MILSTD.F2);
 
                     }
-                    while (result.state != ProgrammFlash.PrgState.Finished);
+                    while (result.state != PrgState.Finished);
                 }
 
                 return result;
@@ -457,22 +555,28 @@ namespace UpdateFirmwareAE
         /// Метод, отключающий прерывания в АЭ
         /// </summary>
         /// <returns></returns>
-        private async Task<ProgrammFlash.ProgrammState> DisableInterrupt()
+        private async Task<ProgrammState> DisableInterrupt()
         {
-            ProgrammFlash.ProgrammState result;
-
+            ProgrammState result;
+            int countErrors = 0;
             // Отключею прерывания (Ф1 и Ф2)
             return await Task.Run(() =>
             {
-                result = _frm.FlashCommand(ProgrammFlash.CMD.DisableInterrupt, FORMATS_MILSTD.F1);
-                if (result.state == ProgrammFlash.PrgState.Finished)
+                result = _frm.FlashCommand(CMD.DisableInterrupt, FORMATS_MILSTD.F1);
+                if (result.state == PrgState.Finished)
                 {
                     do
                     {
                         System.Threading.Thread.Sleep(200);
-                        result = _frm.FlashCommand(ProgrammFlash.CMD.DisableInterrupt, FORMATS_MILSTD.F2);
+                        result = _frm.FlashCommand(CMD.DisableInterrupt, FORMATS_MILSTD.F2);
+                        countErrors++;
+                        if (countErrors > 50)
+                        {
+                            result = new ProgrammState(PrgState.MILSTDError, String.Format("Ошибка при отключении прерываний. Количество попыток: {0}. \nПерепрошивка остановлена.", countErrors));
+                            break;
+                        }
                     }
-                    while (result.state != ProgrammFlash.PrgState.Finished);
+                    while (result.state != PrgState.Finished);
                 }
 
                 return result;
@@ -486,6 +590,8 @@ namespace UpdateFirmwareAE
         /// <param name="e"></param>
         private void checkBox_version_CheckedChanged(object sender, EventArgs e)
         {
+            if (((CheckBox)sender).Checked)
+                _frm.DefaultFRMAddressing = new ProgrammFlash.FRM_ADDR_SUB(10, 16);
             CheckVersion(checkBox_version.Checked);
         }
 
@@ -506,14 +612,20 @@ namespace UpdateFirmwareAE
                 try
                 {
                     FileInfo checkFile;
+                    TypeFRM type;
                     // В заивимости от объекта, порадившего событие, происходит анализ файла прошивки
                     if (control.textBox.Name.Contains(textBox_nameFRMfile.Name))
+                    {
                         checkFile = _file_FRM;
+                        type = TypeFRM.DSP;
+                    }
                     else
+                    {
                         checkFile = _file_PLIS;
+                        type = TypeFRM.PLIS;
+                    }
 
-
-                    control.progFlashObj.IntelHexCheckFile(checkFile);
+                    control.progFlashObj.IntelHexCheckFile(checkFile, type);
                     // Изменяю цвет текста в текущем TextBox на зеленый
                     TextBoxChangeForeColor(control.textBox, Color.Green);
 
@@ -626,51 +738,56 @@ namespace UpdateFirmwareAE
                 toolStripProgressBar.Maximum = 11;
                 button_progPLISfile.Enabled = false;
 
-                //richTextBoxLog.AppendText(toolStripStatusState.Text = String.Format("Установка адреса: {0} и подадреса: {1} \n", _frm.DefaultFRMAddressing.ADDR, _frm.DefaultFRMAddressing.SUB));
-                richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ" + "\n");
+                // Начало программирования
+                await StartProgramming(_file_PLIS, TypeFRM.PLIS);
 
-                // Отключею прерывания (Ф1 и Ф2)
+                #region Комментарий
+                ////richTextBoxLog.AppendText(toolStripStatusState.Text = String.Format("Установка адреса: {0} и подадреса: {1} \n", _frm.DefaultFRMAddressing.ADDR, _frm.DefaultFRMAddressing.SUB));
+                //richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ" + "\n");
 
-                ProgrammFlash.ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
+                //// Отключею прерывания (Ф1 и Ф2)
 
-                toolStripProgressBar.Increment(1);
+                //ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
 
-                if (result.state == ProgrammFlash.PrgState.Finished)
-                {
-                    richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно" + "\n");
-                    richTextBoxLog.AppendText(toolStripStatusState.Text = "Начата процедура очистки флеш-памяти АЭ" + "\n");
-                    // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
+                //toolStripProgressBar.Increment(1);
 
-                    for (ushort page = 0x00; page <= 0x08; page++)
-                    {
-                        result = await EraseFlashByPage(result, page);                                                          // 2. Очистка сектора флеш-памяти
-                        toolStripProgressBar.Increment(1);
-                    }
+                //if (result.state == PrgState.Finished)
+                //{
+                //    richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно" + "\n");
+                //    richTextBoxLog.AppendText(toolStripStatusState.Text = "Начата процедура очистки флеш-памяти АЭ" + "\n");
+                //    // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
 
-                    if (result.state == ProgrammFlash.PrgState.Finished)
-                    {
+                //    for (ushort page = 0x00; page <= 0x08; page++)
+                //    {
+                //        result = await EraseFlashByPage(result, page);                                                          // 2. Очистка сектора флеш-памяти
+                //        toolStripProgressBar.Increment(1);
+                //    }
 
-                        richTextBoxLog.AppendText(toolStripStatusState.Text = "Флеш-память успешно очищена" + "\n");
-                        // Программирование ПЛИС
-                        richTextBoxLog.AppendText(toolStripStatusState.Text = "Начало программирования ПЛИС" + "\n");
+                //    if (result.state == PrgState.Finished)
+                //    {
 
-                        result = await ProgrammingPLIS(result);                                                                 // 3. Прошивка PLIS
+                //        richTextBoxLog.AppendText(toolStripStatusState.Text = "Флеш-память успешно очищена" + "\n");
+                //        // Программирование ПЛИС
+                //        richTextBoxLog.AppendText(toolStripStatusState.Text = "Начало программирования ПЛИС" + "\n");
 
-                        toolStripProgressBar.Increment(1);
+                //        result = await ProgrammingPLIS(result);                                                                 // 3. Прошивка PLIS
 
-                        if (result.state == ProgrammFlash.PrgState.Finished)
-                        {
-                            // Программирование ПЛИС
-                            richTextBoxLog.AppendText(toolStripStatusState.Text = "ПЛИС успешно перепрограммировано" + "\n");
-                            richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключите питание АЭ" + "\n");
-                        }
-                    }
-                }
-                else
-                {
-                    richTextBoxLog.AppendText(result.message + "\n");
-                    MessageBox.Show(result.message);
-                }
+                //        toolStripProgressBar.Increment(1);
+
+                //        if (result.state == PrgState.Finished)
+                //        {
+                //            // Программирование ПЛИС
+                //            richTextBoxLog.AppendText(toolStripStatusState.Text = "ПЛИС успешно перепрограммировано" + "\n");
+                //            richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключите питание АЭ" + "\n");
+                //        }
+                //    }
+                //}
+                //else
+                //{
+                //    richTextBoxLog.AppendText(result.message + "\n");
+                //    MessageBox.Show(result.message);
+                //}
+                #endregion
 
                 button_progPLISfile.CheckState = CheckState.Unchecked;
                 button_progPLISfile.Enabled = true;
