@@ -10,14 +10,31 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using UFA.ProgrammFlash;
 using System.Security.Cryptography;
-using TKB995STD1553B;
+//using TKB995STD1553B;
 using UFA.XML;
 using System.Reflection;
+using System.Collections;
 
 namespace UpdateFirmwareAE
 {
     public partial class MainForm : Form
     {
+        public class MsgStyle
+        {
+            public Color Color { get; set; }
+            public Font Font { get; set; }
+
+            public MsgStyle()
+            {
+                Color = Color.Green;
+                Font = new Font(FontFamily.GenericSansSerif, 9, FontStyle.Bold);
+            }
+            public MsgStyle(Color newColor, Font newFont)
+            {
+                Color = newColor;
+                Font = newFont;
+            }
+        }
         public class GridContainer
         {
             public string NameField
@@ -58,7 +75,6 @@ namespace UpdateFirmwareAE
                 e.Graphics.FillRectangle(Brushes.Red, e.ClipRectangle);
             }
         }
-
         public class Cont
         {
             public ProgrammFlash progFlashObj;
@@ -94,6 +110,17 @@ namespace UpdateFirmwareAE
             }
         }
 
+        private List<string> MsgStates = new List<string>() { "Ошибка", "Успех" };
+        private List<string> OperationState = new List<string>() { "Отключение прерываний АЭ", "Очистка флеш-памяти", "Перепрограммирование" };
+        // 0                             1                           2
+
+        private enum OperationStep
+        {
+            InterruptOff = 0,
+            ClearFlash = 1,
+            Programming = 2,
+            Processing = 3
+        }
         #region Поля
         // Объекты с информацией о файлах
         private FileInfo _file_FRM, _file_PLIS;
@@ -135,6 +162,7 @@ namespace UpdateFirmwareAE
             _btn_old_version_prog.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
             _btn_old_version_prog.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             _btn_old_version_prog.Click += new System.EventHandler(this.btn_old_version_prog_Click);
+            _btn_old_version_prog.TabIndex = 3;
         }
         #endregion
 
@@ -347,6 +375,17 @@ namespace UpdateFirmwareAE
         /// <param name="e"></param>
         private void MainForm_Load(object sender, EventArgs e)
         {
+
+            //richTextBoxLog.ForeColor = Color.Red;
+            //richTextBoxLog.AppendText("Red!!");
+
+            ////richTextBoxLog.ForeColor = Color.Black;
+            //richTextBoxLog.AppendText("Black!!");
+
+
+
+
+
             try
             {
                 _loadSettings = new XMLSettingsParser();
@@ -414,8 +453,15 @@ namespace UpdateFirmwareAE
             }
         }
 
+        /// <summary>
+        /// Метод, выполняющий обновление ПО PLIS и DSP (для двоих сразу) последовательно
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private async void btn_old_version_prog_Click(object sender, EventArgs e)
         {
+            gridContainerBindingSource1.Clear();
+
             CheckBox currCheck = sender as CheckBox;
             if ((currCheck != null) && (currCheck.Checked))
             {
@@ -426,27 +472,31 @@ namespace UpdateFirmwareAE
                 toolStripProgressBar.Maximum = 4;
                 currCheck.Enabled = false;
 
-                richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ" + "\n");
+                UpdateStepLog(0, OperationStep.InterruptOff, gridContainerBindingSource1, PrgState.Processing); // Откл. прерываний
+
 
                 ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
+
                 toolStripProgressBar.Increment(1);
 
                 if (result.state == PrgState.Finished)
                 {
-                    richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключение прерываний в АЭ произведено успешно" + "\n");
-                    richTextBoxLog.AppendText(toolStripStatusState.Text = "Начата процедура очистки флеш-памяти АЭ" + "\n");
+                    UpdateStepLog(0, OperationStep.InterruptOff, gridContainerBindingSource1, result.state); // Откл. прерываний
+
+                    // Добавить ПРОЦЕССИНГ
+                    UpdateStepLog(1, OperationStep.ClearFlash, gridContainerBindingSource1, PrgState.MILSTDError, TypeFRM.PLIS); // Очистка ПЛИС - Ошибка
+                    UpdateStepLog(1, OperationStep.Processing, gridContainerBindingSource1, PrgState.Processing, null, 0);          // Пошел прогресс
                     // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
 
-                    result = await EraseFlashAll(result);                                                                       // 2. Очистка флешки
+                    result = await EraseFlashAll(result);                                                                       // 2. Очистка флешку
                     toolStripProgressBar.Increment(1);
 
                     if (result.state == PrgState.Finished)
                     {
+                        UpdateStepLog(1, OperationStep.ClearFlash, gridContainerBindingSource1, result.state, TypeFRM.PLIS); // Очистка ПЛИС - Успех
+                        UpdateStepLog(2, OperationStep.ClearFlash, gridContainerBindingSource1, result.state, TypeFRM.DSP); // Очистка DSP - Успех
 
-                        richTextBoxLog.AppendText(toolStripStatusState.Text = "Флеш-память успешно очищена" + "\n");
-
-                        // Программирование ПЛИС
-                        richTextBoxLog.AppendText(toolStripStatusState.Text = "Начало программирования ПЛИС" + "\n");
+                        //UpdateStepLog(2, gridContainerBindingSource1, result.state);
 
                         result = await ProgrammingPLIS(result);                                                                 // 3. Прошивка PLIS
                         toolStripProgressBar.Increment(1);
@@ -454,9 +504,8 @@ namespace UpdateFirmwareAE
                         if (result.state == PrgState.Finished)
                         {
                             // Программирование ПЛИС
-                            richTextBoxLog.AppendText(toolStripStatusState.Text = "ПЛИС успешно перепрограммировано" + "\n");
-                            // Программирование DPS
-                            richTextBoxLog.AppendText(toolStripStatusState.Text = "Начало программирования DSP" + "\n");
+                            UpdateStepLog(3, OperationStep.Programming, gridContainerBindingSource1, result.state); // Перепрограммирование ПЛИС - Успех
+
 
                             result = await ProgrammingDSP(result);                                                              // 4. Прошивка DSP
                             toolStripProgressBar.Increment(1);
@@ -464,22 +513,103 @@ namespace UpdateFirmwareAE
                             if (result.state == PrgState.Finished)
                             {
                                 // Программирование DPS
-                                richTextBoxLog.AppendText(toolStripStatusState.Text = "DPS успешно перепрограммировано" + "\n");
-                                richTextBoxLog.AppendText(toolStripStatusState.Text = "Отключите питание АЭ" + "\n");
+                                UpdateStepLog(4, OperationStep.Programming, gridContainerBindingSource1, result.state); // Перепрограммирование DSP - Успех
+
+                                toolStripStatusState.Text = "Обновление прошивки проведено успешно!";
+                                toolStripStatusState.ForeColor = Color.Green;
                             }
                         }
                     }
                 }
                 else
                 {
-                    richTextBoxLog.AppendText(result.message + "\n");
+                    /// Для ТЕСТА процессинга
+                    /// 
+                    var c = await Task.Run(() =>
+                    {
+                        for (int i = 0; i < 100; i++)
+                        {
+                            UpdateStepLog(0, OperationStep.Processing, gridContainerBindingSource1, result.state, null, i);
+                            System.Threading.Thread.Sleep(100);
+                        }
+                        return 1;
+                    });
+                    UpdateStepLog(0, OperationStep.InterruptOff, gridContainerBindingSource1, result.state);
+
+                    toolStripStatusState.Text = "Ошибка при обновлении прошивки!";
+                    toolStripStatusState.ForeColor = Color.Red;
+
                     MessageBox.Show(result.message);
                 }
+
                 currCheck.CheckState = CheckState.Unchecked;
                 currCheck.Enabled = true;
             }
             richTextBoxLog.ScrollToCaret();
         }
+
+
+        private void UpdateStateProcessing(int indexStep, int? value = 0)
+        {
+            if (value > 100)
+                value = 100;
+            dataGridView1.Rows[indexStep].Cells["State"].Value = value.ToString() + " %";
+        }
+
+        /// <summary>
+        /// Метод отображающий текущее состояние перепрограммирования
+        /// </summary>
+        /// <param name="indexStep">Номер шага (он же номер строки в таблице)</param>
+        /// <param name="operStep">Текущий шаг</param>
+        /// <param name="source">Источник данных для DataGridView</param>
+        /// <param name="prgstate">Результат выполнения операции (состояние обмена/перепрограммирования)</param>
+        /// <param name="type">Тип прошивки (ПЛИС или DPS)</param>
+        /// <param name="value">Значение строки прогресса (ТОЛЬКО для operStep = Processing) </param>
+        private void UpdateStepLog(int indexStep, OperationStep operStep, BindingSource source, PrgState prgstate, TypeFRM? type = null, int? value = 0)
+        {
+            if (operStep == OperationStep.Processing)
+            {
+                UpdateStateProcessing(indexStep, value);
+            }
+            else
+            {
+                string operation = NameOperation((int)operStep);        // Выбираю текущую операцию по индексу операции
+                if (type != null)
+                    operation += type.ToString();
+
+                int state = MsgState(prgstate);
+                string msgstate = MsgStates[state];    // Выбираю состояние (ошибка или успех)
+
+                if (source.Count != 0)
+                    source.RemoveAt(indexStep);
+                source.Insert(indexStep, new GridContainer(operation, msgstate));
+
+                MsgStyle newStyle;
+                if (state == 0)
+                    newStyle = new MsgStyle(Color.Red, new Font(FontFamily.GenericSansSerif, 9, FontStyle.Bold));
+                else
+                    newStyle = new MsgStyle(Color.Green, new Font(FontFamily.GenericSansSerif, 9, FontStyle.Bold));
+
+                dataGridView1.Rows[indexStep].Cells["State"].Style.ForeColor = newStyle.Color;
+                dataGridView1.Rows[indexStep].Cells["State"].Style.Font = newStyle.Font;
+            }
+        }
+        private int MsgState(PrgState prgstate)
+        {
+            if (prgstate == PrgState.Finished)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+        private string NameOperation(int indexStep)
+        {
+            return OperationState[indexStep].Trim();
+        }
+
 
         /// <summary>
         /// Метод, выполняющий перепрограммирование DSP
@@ -791,6 +921,23 @@ namespace UpdateFirmwareAE
 
                 button_progPLISfile.CheckState = CheckState.Unchecked;
                 button_progPLISfile.Enabled = true;
+            }
+        }
+
+        private void dataGridView1_Resize(object sender, EventArgs e)
+        {
+            /// Изменение размера
+
+            for (int i = 0; i < dataGridView1.Columns.Count; i++)
+            {
+                if (dataGridView1.Columns[i].DataPropertyName.Contains("NameField"))
+                {
+                    dataGridView1.Columns[i].Width = (int)((dataGridView1.Width - dataGridView1.RowHeadersWidth) * 0.75);
+                }
+                else
+                {
+                    dataGridView1.Columns[i].Width = (int)((dataGridView1.Width - dataGridView1.RowHeadersWidth) * (1 - 0.755));
+                }
             }
         }
 
