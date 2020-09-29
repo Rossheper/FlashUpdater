@@ -35,6 +35,7 @@
             this.statusStripMenu = new System.Windows.Forms.StatusStrip();
             this.toolStripProgressBar = new System.Windows.Forms.ToolStripProgressBar();
             this.toolStripStatus = new System.Windows.Forms.ToolStripStatusLabel();
+            this.toolStripStatusState = new System.Windows.Forms.ToolStripStatusLabel();
             this.richTextBoxLog = new System.Windows.Forms.RichTextBox();
             this.openFileDialogFRM = new System.Windows.Forms.OpenFileDialog();
             this.toolTip_FRM = new System.Windows.Forms.ToolTip(this.components);
@@ -52,11 +53,10 @@
             this.nameFieldDataGridViewTextBoxColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.valueFieldDataGridViewTextBoxColumn = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.gridContainerBindingSource = new System.Windows.Forms.BindingSource(this.components);
-            this.toolStripStatusState = new System.Windows.Forms.ToolStripStatusLabel();
             this.dataGridView1 = new System.Windows.Forms.DataGridView();
-            this.gridContainerBindingSource1 = new System.Windows.Forms.BindingSource(this.components);
             this.Operation = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.State = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.gridContainerBindingSource1 = new System.Windows.Forms.BindingSource(this.components);
             this.statusStripMenu.SuspendLayout();
             this.groupBoxSettings.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewSettingsParams)).BeginInit();
@@ -107,6 +107,12 @@
             this.toolStripStatus.Name = "toolStripStatus";
             this.toolStripStatus.Size = new System.Drawing.Size(46, 17);
             this.toolStripStatus.Text = "Статус:";
+            // 
+            // toolStripStatusState
+            // 
+            this.toolStripStatusState.Name = "toolStripStatusState";
+            this.toolStripStatusState.Size = new System.Drawing.Size(73, 17);
+            this.toolStripStatusState.Text = "Ожидание...";
             // 
             // richTextBoxLog
             // 
@@ -268,12 +274,6 @@
             // 
             this.gridContainerBindingSource.DataSource = typeof(UpdateFirmwareAE.MainForm.GridContainer);
             // 
-            // toolStripStatusState
-            // 
-            this.toolStripStatusState.Name = "toolStripStatusState";
-            this.toolStripStatusState.Size = new System.Drawing.Size(73, 17);
-            this.toolStripStatusState.Text = "Ожидание...";
-            // 
             // dataGridView1
             // 
             this.dataGridView1.AllowUserToAddRows = false;
@@ -296,10 +296,6 @@
             this.dataGridView1.TabIndex = 6;
             this.dataGridView1.Resize += new System.EventHandler(this.dataGridView1_Resize);
             // 
-            // gridContainerBindingSource1
-            // 
-            this.gridContainerBindingSource1.DataSource = typeof(UpdateFirmwareAE.MainForm.GridContainer);
-            // 
             // Operation
             // 
             this.Operation.DataPropertyName = "NameField";
@@ -315,6 +311,10 @@
             this.State.Name = "State";
             this.State.ReadOnly = true;
             this.State.Width = 104;
+            // 
+            // gridContainerBindingSource1
+            // 
+            this.gridContainerBindingSource1.DataSource = typeof(UpdateFirmwareAE.MainForm.GridContainer);
             // 
             // MainForm
             // 

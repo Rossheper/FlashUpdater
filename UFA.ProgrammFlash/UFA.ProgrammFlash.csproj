@@ -23,7 +23,7 @@
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,10 +33,12 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Data" />
@@ -45,8 +47,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\TKB974.CRC.dll</HintPath>
     </Reference>
-    <Reference Include="TKB974.STD1553B">
-      <HintPath>..\Debug\TKB974.STD1553B.dll</HintPath>
+    <Reference Include="TKB974.STD1553B, Version=1.0.7510.17127, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\UpdateFirmwareAE\TKB974.STD1553B.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UFA.XML", "UFA.XML\UFA.XML.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UFA.Exceptions", "UFA.Exceptions\UFA.Exceptions.csproj", "{C8CDDCA2-48D9-4E4E-A297-1C4597F41B68}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TKB974.STD1553B", "TKB995.STD1553B\TKB995.STD1553B.vcxproj", "{736B084F-0775-4EB8-A8F6-A5353809EAF2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -70,6 +72,12 @@ Global
 		{C8CDDCA2-48D9-4E4E-A297-1C4597F41B68}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C8CDDCA2-48D9-4E4E-A297-1C4597F41B68}.Release|x86.ActiveCfg = Release|Any CPU
 		{C8CDDCA2-48D9-4E4E-A297-1C4597F41B68}.Release|x86.Build.0 = Release|Any CPU
+		{736B084F-0775-4EB8-A8F6-A5353809EAF2}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{736B084F-0775-4EB8-A8F6-A5353809EAF2}.Debug|x86.ActiveCfg = Debug|Win32
+		{736B084F-0775-4EB8-A8F6-A5353809EAF2}.Debug|x86.Build.0 = Debug|Win32
+		{736B084F-0775-4EB8-A8F6-A5353809EAF2}.Release|Any CPU.ActiveCfg = Release|Win32
+		{736B084F-0775-4EB8-A8F6-A5353809EAF2}.Release|x86.ActiveCfg = Release|Win32
+		{736B084F-0775-4EB8-A8F6-A5353809EAF2}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -9,6 +9,7 @@ using UFA.Exceptions;
 using TKB974.CRC;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace UFA.ProgrammFlash
 {
@@ -318,7 +319,7 @@ namespace UFA.ProgrammFlash
         /// <summary>
         /// Установка адресов по-умолчанию
         /// </summary>
-        private void ResetAddresses()
+        public void ResetAddresses()
         {
             _addrPages.PLIS = 0x0;
             _addrPages.DSP = 0x0a;
@@ -367,44 +368,50 @@ namespace UFA.ProgrammFlash
         /// Метод чтения данных из файла
         /// </summary>
         /// <param name="currFile"></param>
-        private void ReadFileFRM(FileInfo currFile, TypeFRM type)
+        public void ReadFileFRM(string line, TypeFRM type, ref int datatransfers)
         {
-            using (StreamReader reader = new StreamReader(currFile.FullName))
-            {
-                while (!reader.EndOfStream)
-                {
-                    I32HEX st = _i32hex.FRMperLine(reader.ReadLine());
+            //using (StreamReader reader = new StreamReader(currFile.FullName))
+            //{
+            //    while (!reader.EndOfStream)
+            //    {
+            //I32HEX st = _i32hex.FRMperLine(reader.ReadLine());
+            I32HEX st = _i32hex.FRMperLine(line);
 
-                    //Retry:
-                    // Если получили тип с данными!
-                    if (st.RecordType == (byte)RecordType.Data)
+            //Retry:
+            // Если получили тип с данными!
+            if (st.RecordType == (byte)RecordType.Data)
+            {
+                /// Отправляю данные по манчестеру (Ф1)
+                // Формирую массив для отправки (заголовок + данные + CRC16)
+                ushort[] ToSend = FrameIntelHexCreator(HeaderIntelHexCreator(FirmwareCMD.ProgrammFlash, st, type), Data2SendPrepare(st));
+                ProgrammState prgState;
+                do
+                {
+                    prgState = FlashCommand((CMD)FirmwareCMD.ProgrammFlash, FORMATS_MILSTD.F1, ToSend);
+                    if (prgState.state == PrgState.MILSTDError)
+                        Thread.Sleep(200);
+                }
+                while (prgState.state != PrgState.Finished);
+
+                if (prgState.state == PrgState.Finished)
+                {
+                    do
                     {
-                        /// Отправляю данные по манчестеру (Ф1)
-                        // Формирую массив для отправки (заголовок + данные + CRC16)
-                        ushort[] ToSend = FrameIntelHexCreator(HeaderIntelHexCreator(FirmwareCMD.ProgrammFlash, st, type), Data2SendPrepare(st));
-                        ProgrammState prgState;
-                        do
-                        {
-                            prgState = FlashCommand((CMD)FirmwareCMD.ProgrammFlash, FORMATS_MILSTD.F1, ToSend);
-                            if (prgState.state == PrgState.MILSTDError)
-                                Thread.Sleep(200);
-                        }
-                        while (prgState.state != PrgState.Finished);
-                        if (prgState.state == PrgState.Finished)
-                        {
-                            do
-                            {
-                                prgState = FlashCommand((CMD)FirmwareCMD.ProgrammFlash, FORMATS_MILSTD.F2, _getOSMilstd);
-                                if (prgState.state == PrgState.MILSTDError)
-                                    Thread.Sleep(200);
-                            }
-                            while (prgState.state != PrgState.Finished);
-                        }
+                        prgState = FlashCommand((CMD)FirmwareCMD.ProgrammFlash, FORMATS_MILSTD.F2, _getOSMilstd);
+                        if (prgState.state == PrgState.MILSTDError)
+                            Thread.Sleep(200);
                     }
-                    // Процессинг
-                    // Возможно я чтение файла выкину отсюда в основное окно, чтобы отслеживать прогерсс-баром
+                    while (prgState.state != PrgState.Finished);
+                    if (prgState.state == PrgState.Finished)
+                    {
+                        datatransfers += (st.ByteCount / 2);
+                    }
                 }
             }
+            // Процессинг
+            // Возможно я чтение файла выкину отсюда в основное окно, чтобы отслеживать прогерсс-баром
+            //    }
+            //}
         }
 
         /// <summary>
@@ -586,14 +593,14 @@ namespace UFA.ProgrammFlash
         /// <returns></returns>
         virtual public ProgrammState StartProgramm(FileInfo FRM, TypeFRM type)
         {
-            ResetAddresses();
-            if (_connectIsOpen)
-            {
-                ReadFileFRM(FRM, type);
-                return new ProgrammState(PrgState.Finished);
-            }
-            else
-                return new ProgrammState(PrgState.MILSTDError, "Соединение с платой не было установлено");
+            //ResetAddresses();
+            //if (_connectIsOpen)
+            //{
+            //    ReadFileFRM(FRM, type);
+            //    return new ProgrammState(PrgState.Finished);
+            //}
+            //else
+            return new ProgrammState(PrgState.MILSTDError, "Соединение с платой не было установлено");
         }
 
         /// <summary>
@@ -668,5 +675,10 @@ namespace UFA.ProgrammFlash
             }
         }
         #endregion
+
+        public void testPercent(ref BindingSource source, DataGridView dg)
+        {
+
+        }
     }
 }

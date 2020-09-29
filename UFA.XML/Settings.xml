@@ -5,7 +5,7 @@
   </MILSTD1553B>
   <MILSTD1553B setting="programming">
     <addr>10</addr>
-    <subaddr>30</subaddr>
+    <subaddr>16</subaddr>
   </MILSTD1553B>
   <Pages>
     <DSP>

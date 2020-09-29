@@ -45,7 +45,7 @@
     <Reference Include="System.Xml" />
     <Reference Include="TKB974.STD1553B, Version=1.0.7510.17127, Culture=neutral, processorArchitecture=x86">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Debug\TKB974.STD1553B.dll</HintPath>
+      <HintPath>..\UpdateFirmwareAE\TKB974.STD1553B.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

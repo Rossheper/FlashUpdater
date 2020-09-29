@@ -110,8 +110,8 @@ namespace UpdateFirmwareAE
             }
         }
 
-        private List<string> MsgStates = new List<string>() { "Ошибка", "Успех" };
-        private List<string> OperationState = new List<string>() { "Отключение прерываний АЭ", "Очистка флеш-памяти", "Перепрограммирование" };
+        private static List<string> MsgStates = new List<string>() { "Ошибка", "Успех", "Выполнение" };
+        private static List<string> OperationState = new List<string>() { "Отключение прерываний АЭ", "Очистка флеш-памяти", "Перепрограммирование" };
         // 0                             1                           2
 
         private enum OperationStep
@@ -204,14 +204,14 @@ namespace UpdateFirmwareAE
                 button_progFRMfile.Enabled = false;
 
                 // Начало программирования
-                await StartProgramming(_file_FRM, TypeFRM.DSP);
+                await StartProgramming(3, _file_FRM, TypeFRM.DSP);
 
                 button_progFRMfile.CheckState = CheckState.Unchecked;
                 button_progFRMfile.Enabled = true;
             }
         }
 
-        private async Task StartProgramming(FileInfo file, TypeFRM type)
+        private async Task StartProgramming(int step, FileInfo file, TypeFRM type)
         {
             richTextBoxLog.AppendText((toolStripStatusState.Text = "Отключение прерываний в АЭ") + "\n");
             // ProgrammFlash.ProgrammState res;
@@ -287,7 +287,7 @@ namespace UpdateFirmwareAE
             //}
             #endregion
 
-            ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
+            ProgrammState result = await DisableInterrupt(0, this);                                                  // 1. Отключение прерываний
             toolStripProgressBar.Increment(1);
 
             if (result.state == PrgState.Finished)
@@ -322,7 +322,7 @@ namespace UpdateFirmwareAE
                     else
                         richTextBoxLog.AppendText(toolStripStatusState.Text = "Начало программирования ПЛИС" + "\n");
 
-                    result = await Programming(result, file, type);                                                                  // 3. Прошивка DSP
+                    result = await Programming(step, file, type);                                                                  // 3. Прошивка DSP
                     toolStripProgressBar.Increment(1);
 
                     if (result.state == PrgState.Finished)
@@ -460,6 +460,13 @@ namespace UpdateFirmwareAE
         /// <param name="e"></param>
         private async void btn_old_version_prog_Click(object sender, EventArgs e)
         {
+            toolStripStatusState.Text = "Запущено обновление прошивки АЭ!";
+            toolStripStatusState.ForeColor = Color.Black;
+            await ProgrammPLISandDSP(sender);
+        }
+
+        private async Task ProgrammPLISandDSP(object sender)
+        {
             gridContainerBindingSource1.Clear();
 
             CheckBox currCheck = sender as CheckBox;
@@ -467,106 +474,62 @@ namespace UpdateFirmwareAE
             {
                 _frm.DefaultFRMAddressing = new ProgrammFlash.FRM_ADDR_SUB(10, 16);
 
-                richTextBoxLog.Clear();
                 toolStripProgressBar.Value = 0;
                 toolStripProgressBar.Maximum = 4;
                 currCheck.Enabled = false;
 
-                UpdateStepLog(0, OperationStep.InterruptOff, gridContainerBindingSource1, PrgState.Starting); // Откл. прерываний
+                ProgrammState result;
 
-                ProgrammState result = await DisableInterrupt();                                                  // 1. Отключение прерываний
-
-                toolStripProgressBar.Increment(1); // Прогресс бар +1
-
-                if (result.state == PrgState.Finished)
+                // Предохранитель
+                if (OperationState.Count < 3 || OperationState.Count > 3)
                 {
-                    UpdateStepLog(0, OperationStep.InterruptOff, gridContainerBindingSource1, result.state); // Откл. прерываний - Успех
-                    UpdateStepLog(1, OperationStep.ClearFlash, gridContainerBindingSource1, PrgState.Starting); // Начало очистки флешки
+                    throw new Exception("Неверное количество команд, необходимых для выполнения перепрошивки!");
+                }
 
-                    // Стираю флешку целиком (ожидать долго надо и повторять каждую 1 секунду)
+                for (int i = 0; i <= OperationState.Count; i++) // <= так как программирование ПЛИС и DSP (4 операции (от 0 до 3))
+                {
+                    if (i == 0)
+                        result = await DisableInterrupt(i, this);   // 0. Отключение прерываний
+                    else if (i == 1)
+                        result = await EraseFlashAll(i, this);      // 1. Очистка флешку
+                    else if (i == 2)
+                        result = await ProgrammingPLIS(i, this);    // 2. Прошивка PLIS
+                    else if (i == 3)
+                        result = await ProgrammingDSP(i, this);     // 3. Прошивка DSP
+                    else
+                        result = new ProgrammState(PrgState.MILSTDError); // Тупо дефолт
 
-                    result = await EraseFlashAll(result);                                                                       // 2. Очистка флешку
-
-                    toolStripProgressBar.Increment(1); // Прогресс бар +1
-
-                    if (result.state == PrgState.Finished)
+                    if (result.state != PrgState.Finished)
                     {
-                        UpdateStepLog(1, OperationStep.ClearFlash, gridContainerBindingSource1, result.state); // Очистка ПЛИС - Успех
-                        UpdateStepLog(2, OperationStep.Programming, gridContainerBindingSource1, PrgState.Starting, TypeFRM.PLIS); // Начало прошивки ПЛИС
-
-                        result = await ProgrammingPLIS(result);                                                                 // 3. Прошивка PLIS
-
-                        toolStripProgressBar.Increment(1); // Прогресс бар +1
-
-                        if (result.state == PrgState.Finished)
-                        {
-                            // Программирование ПЛИС
-                            UpdateStepLog(2, OperationStep.Programming, gridContainerBindingSource1, result.state, TypeFRM.PLIS); // Перепрограммирование ПЛИС - Успех
-                            UpdateStepLog(3, OperationStep.Programming, gridContainerBindingSource1, PrgState.Starting, TypeFRM.DSP); // Начало прошивки DSP
-
-                            result = await ProgrammingDSP(result);                                                              // 4. Прошивка DSP
-
-                            toolStripProgressBar.Increment(1); // Прогресс бар +1
-
-                            if (result.state == PrgState.Finished)
-                            {
-                                // Программирование DPS
-                                UpdateStepLog(3, OperationStep.Programming, gridContainerBindingSource1, result.state, TypeFRM.DSP); // Перепрограммирование DSP - Успех
-
-                                toolStripStatusState.Text = "Обновление прошивки проведено успешно!";
-                                toolStripStatusState.ForeColor = Color.Green;
-                            }
-                            else
-                            {
-                                UpdateStepLog(3, OperationStep.Programming, gridContainerBindingSource1, result.state, TypeFRM.DSP); // Перепрограммирование DSP - Ошибка
-                            }
-                        }
+                        if (i < 2)
+                            UpdateStepLog(i, (OperationStep)i, gridContainerBindingSource1, result.state); // 0 1
                         else
                         {
-                            UpdateStepLog(2, OperationStep.Programming, gridContainerBindingSource1, result.state, TypeFRM.PLIS); // Перепрограммирование ПЛИС - Ошибка
+                            if (i == 2)
+                                UpdateStepLog(i, (OperationStep)i, gridContainerBindingSource1, result.state, TypeFRM.PLIS); // 2
+                            else if (i == 3)
+                                UpdateStepLog(i, (OperationStep)(i - 1), gridContainerBindingSource1, result.state, TypeFRM.DSP); // 3
                         }
-                        
+                        toolStripStatusState.Text = "Ошибка при обновлении прошивки!";
+                        toolStripStatusState.ForeColor = Color.Red;
+
+                        MessageBox.Show(result.message);
+                        break;
                     }
+
                     else
-                    {
-                        UpdateStepLog(1, OperationStep.ClearFlash, gridContainerBindingSource1, result.state); // Очистка ПЛИС - Ошибка
-                    }
+                        toolStripProgressBar.Increment(1); // Прогресс бар +1
                 }
-                else
-                {
-                    #region Тест процессинга
-                    ///// Для ТЕСТА процессинга
-                    ///// 
-                    //var c = await Task.Run(() =>
-                    //{
-                    //    for (int i = 0; i < 100; i++)
-                    //    {
-                    //        UpdateStepLog(0, OperationStep.Processing, gridContainerBindingSource1, result.state, null, i);
-                    //        System.Threading.Thread.Sleep(100);
-                    //    }
-                    //    return 1;
-                    //});
-                    #endregion
-                    UpdateStepLog(0, OperationStep.InterruptOff, gridContainerBindingSource1, result.state);
-
-                    toolStripStatusState.Text = "Ошибка при обновлении прошивки!";
-                    toolStripStatusState.ForeColor = Color.Red;
-
-                    MessageBox.Show(result.message);
-                }
-
                 currCheck.CheckState = CheckState.Unchecked;
                 currCheck.Enabled = true;
             }
-            richTextBoxLog.ScrollToCaret();
         }
 
-
-        private void UpdateStateProcessing(int indexStep, int? value = 0)
+        private void UpdateStateProcessing(int indexStep, int? value = 0, string designation = null)
         {
             if (value > 100)
                 value = 100;
-            dataGridView1.Rows[indexStep].Cells["State"].Value = value.ToString() + " %";
+            dataGridView1.Rows[indexStep].Cells["State"].Value = value.ToString() + " " + designation;
         }
 
         /// <summary>
@@ -578,22 +541,20 @@ namespace UpdateFirmwareAE
         /// <param name="prgstate">Результат выполнения операции (состояние обмена/перепрограммирования)</param>
         /// <param name="type">Тип прошивки (ПЛИС или DPS)</param>
         /// <param name="value">Значение строки прогресса (ТОЛЬКО для operStep = Processing) </param>
-        private void UpdateStepLog(int indexStep, OperationStep operStep, BindingSource source, PrgState prgstate, TypeFRM? type = null, int? value = 0)
+        private void UpdateStepLog(int indexStep, OperationStep operStep, BindingSource source, PrgState prgstate, TypeFRM? type = null, int? value = 0, string designation = null)
         {
             if (operStep == OperationStep.Processing)
             {
-                UpdateStateProcessing(indexStep, value);
+                UpdateStateProcessing(indexStep, value, designation);
             }
             else
             {
-                string operation = NameOperation((int)operStep);        // Выбираю текущую операцию по индексу операции
+                string operation = NameOperation((int)operStep) + " ";        // Выбираю текущую операцию по индексу операции
                 if (type != null)
                     operation += type.ToString();
 
                 int state = MsgState(prgstate);
                 string msgstate = MsgStates[state];    // Выбираю состояние (ошибка или успех)
-
-
 
                 if (source.Count > 0)
                 {
@@ -605,18 +566,25 @@ namespace UpdateFirmwareAE
                 MsgStyle newStyle;
                 if (state == 0)
                     newStyle = new MsgStyle(Color.Red, new Font(FontFamily.GenericSansSerif, 9, FontStyle.Bold));
-                else
+                else if (state == 1)
                     newStyle = new MsgStyle(Color.Green, new Font(FontFamily.GenericSansSerif, 9, FontStyle.Bold));
+                else
+                    newStyle = new MsgStyle(Color.Black, new Font(FontFamily.GenericSansSerif, 9, FontStyle.Regular));
 
                 dataGridView1.Rows[indexStep].Cells["State"].Style.ForeColor = newStyle.Color;
                 dataGridView1.Rows[indexStep].Cells["State"].Style.Font = newStyle.Font;
             }
         }
+
         private int MsgState(PrgState prgstate)
         {
             if (prgstate == PrgState.Finished)
             {
                 return 1;
+            }
+            else if (prgstate == PrgState.Processing)
+            {
+                return 2;
             }
             else
             {
@@ -634,12 +602,16 @@ namespace UpdateFirmwareAE
         /// </summary>
         /// <param name="result">Объект с описанием текущего состояния</param>
         /// <returns></returns>
-        private async Task<ProgrammState> ProgrammingDSP(ProgrammState result)
+        private async Task<ProgrammState> ProgrammingDSP(int step, MainForm owner)
         {
+            ProgrammState result;
+            UpdateStepLog(step, OperationStep.Programming, gridContainerBindingSource1, PrgState.Processing, TypeFRM.DSP);   // Начало прошивки DSP
             result = await Task.Run(() =>
             {
-                return Programming(result, _file_FRM, TypeFRM.DSP);// _frm.StartProgramm(_file_FRM, ProgrammFlash.TypeFRM.DSP);
+                return Programming(step, _file_FRM, TypeFRM.DSP);// _frm.StartProgramm(_file_FRM, ProgrammFlash.TypeFRM.DSP);
             });
+            if (result.state == PrgState.Finished)
+                owner.UpdateStepLog(step, OperationStep.Programming, gridContainerBindingSource1, result.state, TypeFRM.DSP);       // Перепрограммирование DSP - Успех
             return result;
         }
 
@@ -648,12 +620,16 @@ namespace UpdateFirmwareAE
         /// </summary>
         /// <param name="result">Объект с описанием текущего состояния</param>
         /// <returns></returns>
-        private async Task<ProgrammState> ProgrammingPLIS(ProgrammState result)
+        private async Task<ProgrammState> ProgrammingPLIS(int step, MainForm owner)
         {
+            ProgrammState result;
+            owner.UpdateStepLog(step, OperationStep.Programming, gridContainerBindingSource1, PrgState.Processing, TypeFRM.PLIS);      // Начало прошивки ПЛИС
             result = await Task.Run(() =>
             {
-                return Programming(result, _file_PLIS, TypeFRM.PLIS);//_frm.StartProgramm(_file_PLIS, ProgrammFlash.TypeFRM.PLIS);
+                return Programming(step, _file_PLIS, TypeFRM.PLIS);//_frm.StartProgramm(_file_PLIS, ProgrammFlash.TypeFRM.PLIS);
             });
+            if (result.state == PrgState.Finished)
+                owner.UpdateStepLog(step, OperationStep.Programming, gridContainerBindingSource1, result.state, TypeFRM.PLIS);       // Перепрограммирование ПЛИС - Успех
             return result;
         }
 
@@ -664,11 +640,29 @@ namespace UpdateFirmwareAE
         /// <param name="file">Файл с прошивкой</param>
         /// <param name="type">Тип вычислителя</param>
         /// <returns></returns>
-        private async Task<ProgrammState> Programming(ProgrammState result, FileInfo file, TypeFRM type)
+        private async Task<ProgrammState> Programming(int step, FileInfo file, TypeFRM type)
         {
+            ProgrammState result;
+            int data_transfers = 0;
             result = await Task.Run(() =>
             {
-                return _frm.StartProgramm(file, type);
+                _frm.ResetAddresses();
+                if (_frm.ConnectToMILSTD)
+                {
+                    using (StreamReader reader = new StreamReader(file.FullName))
+                    {
+                        while (!reader.EndOfStream)
+                        {
+                            _frm.ReadFileFRM(reader.ReadLine(), type, ref data_transfers);
+                            UpdateStepLog(step, OperationStep.Processing, gridContainerBindingSource1, PrgState.Processing, null, (int)((data_transfers/file.Length)*100), "%");
+                        }
+                        return new ProgrammState(PrgState.Finished);
+                    }
+                    //_frm.ReadFileFRM(file, type);
+                }
+                else
+                    return new ProgrammState(PrgState.MILSTDError, "Соединение с платой не было установлено");
+                //return _frm.StartProgramm(file, type);
             });
             return result;
         }
@@ -678,49 +672,28 @@ namespace UpdateFirmwareAE
         /// </summary>
         /// <param name="result">Объект с описанием текущего состояния</param>
         /// <returns></returns>
-        private async Task<ProgrammState> EraseFlashAll(ProgrammState result)
+        private async Task<ProgrammState> EraseFlashAll(int step, MainForm owner)
         {
+            ProgrammState result;
+            int countErrors = 0;
+            owner.UpdateStepLog(step, OperationStep.ClearFlash, gridContainerBindingSource1, PrgState.Processing);              // Выставляю в таблице статус "Выполняется"
             result = await Task.Run(() =>
             {
+                owner.UpdateStepLog(step, OperationStep.Processing, gridContainerBindingSource1, PrgState.Processing, null, 0, "c"); // Выставляю в таблице статус ход выполнения 0 c
                 result = _frm.FlashCommand(CMD.EraseFlashALL, FORMATS_MILSTD.F1);
 
                 if (result.state == PrgState.Finished)
                 {
+
                     do
                     {
                         System.Threading.Thread.Sleep(1000); // Пауза 1 секунда
                         result = _frm.FlashCommand(CMD.EraseFlashALL, FORMATS_MILSTD.F2);
-                    }
-                    while (result.state != PrgState.Finished);
-                }
-
-                return result;
-            });
-            return result;
-        }
-
-        /// <summary>
-        /// Метод, отключающий прерывания в АЭ
-        /// </summary>
-        /// <returns></returns>
-        private async Task<ProgrammState> DisableInterrupt()
-        {
-            ProgrammState result;
-            int countErrors = 0;
-            // Отключею прерывания (Ф1 и Ф2)
-            return await Task.Run(() =>
-            {
-                result = _frm.FlashCommand(CMD.DisableInterrupt, FORMATS_MILSTD.F1);
-                if (result.state == PrgState.Finished)
-                {
-                    do
-                    {
-                        System.Threading.Thread.Sleep(200);
-                        result = _frm.FlashCommand(CMD.DisableInterrupt, FORMATS_MILSTD.F2);
+                        owner.UpdateStepLog(step, OperationStep.Processing, gridContainerBindingSource1, result.state, null, countErrors, "c"); // Выставляю в таблице статус ход выполнения c
                         countErrors++;
-                        if (countErrors > 50)
+                        if (countErrors > 30) // в течение 30 с пытаюсь очистить флешку
                         {
-                            result = new ProgrammState(PrgState.MILSTDError, String.Format("Ошибка при отключении прерываний. Количество попыток: {0}. \nПерепрошивка остановлена.", countErrors));
+                            result = new ProgrammState(PrgState.MILSTDError, String.Format("Ошибка при очистки флеш-памяти. Время ожидания отключения составило {0} с. \nПерепрошивка остановлена.", countErrors));
                             break;
                         }
                     }
@@ -729,6 +702,52 @@ namespace UpdateFirmwareAE
 
                 return result;
             });
+
+            if (result.state == PrgState.Finished)
+                owner.UpdateStepLog(step, OperationStep.ClearFlash, gridContainerBindingSource1, result.state);                            // Откл. прерываний - Успех
+            return result;
+        }
+
+        /// <summary>
+        /// Метод, отключающий прерывания в АЭ
+        /// </summary>
+        /// <returns></returns>
+        private async Task<ProgrammState> DisableInterrupt(int step, MainForm owner)
+        {
+            ProgrammState result;
+            int countErrors = 0;
+            owner.UpdateStepLog(step, OperationStep.InterruptOff, gridContainerBindingSource1, PrgState.Processing); // Выставляю в таблице статус "Выполняется"
+            // Отключею прерывания (Ф1 и Ф2)
+            result = await Task.Run(() =>
+            {
+
+                owner.UpdateStepLog(step, OperationStep.Processing, gridContainerBindingSource1, PrgState.Processing, null, 0, "c"); // Выставляю в таблице статус ход выполнения 0 %
+
+                result = _frm.FlashCommand(CMD.DisableInterrupt, FORMATS_MILSTD.F1);
+                if (result.state == PrgState.Finished)
+                {
+
+                    do
+                    {
+                        System.Threading.Thread.Sleep(200);
+                        result = _frm.FlashCommand(CMD.DisableInterrupt, FORMATS_MILSTD.F2);
+                        owner.UpdateStepLog(step, OperationStep.Processing, gridContainerBindingSource1, result.state, null, (countErrors * 200) / 1000, "c"); // Выставляю в таблице статус ход выполнения 50 %
+                        countErrors++;
+                        if (countErrors > 50) // в течение 10 с пытаюсь отключить прерывания
+                        {
+                            result = new ProgrammState(PrgState.MILSTDError, String.Format("Ошибка при отключении прерываний. Время ожидания отключения составило {0} с. \nПерепрошивка остановлена.", (countErrors * 200 / 1000)));
+                            break;
+                        }
+                    }
+                    while (result.state != PrgState.Finished);
+                }
+
+                return result;
+            });
+
+            if (result.state == PrgState.Finished)
+                owner.UpdateStepLog(step, OperationStep.InterruptOff, gridContainerBindingSource1, result.state);                            // Откл. прерываний - Успех
+            return result;
         }
 
         /// <summary>
@@ -887,7 +906,7 @@ namespace UpdateFirmwareAE
                 button_progPLISfile.Enabled = false;
 
                 // Начало программирования
-                await StartProgramming(_file_PLIS, TypeFRM.PLIS);
+                await StartProgramming(2, _file_PLIS, TypeFRM.PLIS);
 
                 #region Комментарий
                 ////richTextBoxLog.AppendText(toolStripStatusState.Text = String.Format("Установка адреса: {0} и подадреса: {1} \n", _frm.DefaultFRMAddressing.ADDR, _frm.DefaultFRMAddressing.SUB));
