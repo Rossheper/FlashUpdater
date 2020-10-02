@@ -368,7 +368,7 @@ namespace UFA.ProgrammFlash
         /// Метод чтения данных из файла
         /// </summary>
         /// <param name="currFile"></param>
-        public void ReadFileFRM(string line, TypeFRM type, ref int datatransfers)
+        public void ReadFileFRM(string line, TypeFRM type, DataGridView dg, int len)
         {
             //using (StreamReader reader = new StreamReader(currFile.FullName))
             //{
@@ -402,13 +402,10 @@ namespace UFA.ProgrammFlash
                             Thread.Sleep(200);
                     }
                     while (prgState.state != PrgState.Finished);
-                    if (prgState.state == PrgState.Finished)
-                    {
-                        datatransfers += (st.ByteCount / 2);
-                    }
                 }
+
             }
-            // Процессинг
+            
             // Возможно я чтение файла выкину отсюда в основное окно, чтобы отслеживать прогерсс-баром
             //    }
             //}

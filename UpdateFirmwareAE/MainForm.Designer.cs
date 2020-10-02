@@ -169,6 +169,7 @@
             // 
             // button_openPLISfile
             // 
+            this.button_openPLISfile.Enabled = false;
             this.button_openPLISfile.Location = new System.Drawing.Point(207, 70);
             this.button_openPLISfile.Name = "button_openPLISfile";
             this.button_openPLISfile.Size = new System.Drawing.Size(56, 23);
