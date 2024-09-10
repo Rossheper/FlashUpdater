@@ -58,5 +58,6 @@
   <ItemGroup>
     <None Include="USB_TA_DRV.dll" />
     <None Include="USB_TA_VC2.dll" />
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
